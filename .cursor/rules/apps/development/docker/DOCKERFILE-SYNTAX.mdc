@@ -1,0 +1,50 @@
+---
+description: Dockerfile syntax guardrails — prevent parse errors from config snippets, HTML, or XML appearing as instructions
+globs: ["build/**/Dockerfile", "build/**/Dockerfile.*"]
+alwaysApply: false
+---
+ 
+# Dockerfile Syntax Rules
+ 
+## Critical: Never Include Raw HTML/XML/Config in RUN Commands
+ 
+### INCORRECT - Will Cause Parse Errors
+ 
+```dockerfile
+RUN echo "<VirtualHost *:3206>
+    DocumentRoot /var/www/html
+</VirtualHost>" > /etc/apache2/sites-available/000-default.conf
+# ERROR: Docker parser sees <VirtualHost as an unknown instruction
+```
+ 
+### CORRECT - Use COPY (preferred) or explicit escaping
+ 
+```dockerfile
+# Method 1: Use escaped quotes and escaped newlines
+RUN echo "<VirtualHost *:3206>\n\
+    DocumentRoot /var/www/html\n\
+</VirtualHost>" > /etc/apache2/sites-available/000-default.conf
+ 
+# Method 2: Use printf for multi-line
+RUN printf '<VirtualHost *:3206>\n\
+    DocumentRoot /var/www/html\n\
+</VirtualHost>\n' > /etc/apache2/sites-available/000-default.conf
+ 
+# Method 3: Copy from a prepared config file (preferred)
+COPY apache-config.conf /etc/apache2/sites-available/000-default.conf
+```
+ 
+## Rules
+ 
+- **Project requirement**: For multi-line server configs (Apache/Nginx), create the file under `build/<service>/config/` (or similar) and `COPY` it into the image. This avoids Cursor markers being injected into `RUN` lines.
+- When a short inline snippet is unavoidable, escape every newline (`\n\`) and quote the payload so Docker sees a single instruction.
+- Never write raw-heavy syntax like `<VirtualHost`, `<Directory>`, or XML-like tags as unescaped strings in RUN.
+- Avoid heredoc patterns (`RUN cat <<'EOF'`) in this repository; Cursor’s generation markers can break parsing and trigger `unknown instruction` errors.
+- Test Dockerfile syntax with `docker build --dry-run` or similar validation before committing.
+ 
+## Common Error Patterns
+ 
+- `<VirtualHost` without escaping → "unknown instruction: <VIRTUALHOST"
+- `<Directory>` without escaping → parse error
+- Multi-line echo without `\n\` → may still parse incorrectly
+- XML/HTML tags appearing on lines Docker interprets as instructions

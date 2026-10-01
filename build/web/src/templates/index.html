@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Globex Finance — Supplier Portal API</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #e2e8f0;
+           margin: 0; padding: 2.5rem; line-height: 1.6; }
+    .wrap { max-width: 680px; margin: 0 auto; }
+    h1 { font-size: 1.3rem; margin: 0 0 .25rem; }
+    p.sub { color: #94a3b8; margin: 0 0 2rem; }
+    h2 { font-size: 1rem; margin: 2rem 0 .5rem; color: #cbd5e1; }
+    code, pre { font-family: ui-monospace, Menlo, monospace; background: #1e293b;
+                border-radius: 6px; }
+    code { padding: .15rem .4rem; }
+    pre { padding: 1rem; overflow-x: auto; border: 1px solid #334155; }
+    .key { color: #93c5fd; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Globex Finance — Supplier Portal API</h1>
+    <p class="sub">Vendors look up their invoice details over a small read-only API.</p>
+
+    <h2>Authentication</h2>
+    <p>Every request must send the portal API key as a header:</p>
+    <pre>X-Portal-Key: <span class="key">{{ api_key }}</span></pre>
+
+    <h2>Look up an invoice</h2>
+    <pre>GET /api/invoices/&lt;reference&gt;</pre>
+    <p>Returns the invoice's <code>reference</code>, <code>vendor</code>, <code>amount</code> and <code>status</code> as JSON.</p>
+
+    <h2>Example</h2>
+    <pre>curl -H "X-Portal-Key: {{ api_key }}" \
+     http://localhost:3206/api/invoices/INV-20481</pre>
+  </div>
+</body>
+</html>
