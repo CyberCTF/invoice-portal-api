@@ -44,3 +44,5 @@ AWS: same with `deploy/terraform/aws`, AWS credentials in the environment
 | Attack box | `CYBERCTF_ATTACKBOX_IMAGE` | `attackbox_image` |
 | Lab source | copied from this folder | `lab_repository`, `lab_commit`, `lab_slug` |
 | Home-lab connection | `CYBERCTF_ESXI_*` | `proxmox_*` |
+| Cloud | | `region`, `instance_type`, `allowed_cidr`; AWS keys as `AWS_*` env |
+| Launcher SSH key ("Open shell") | Vagrant's own key | `ssh_public_key` (user from the `ssh_user` output) |
