@@ -19,7 +19,7 @@ services:
       MYSQL_USER: "portal"
       MYSQL_PASSWORD: "portal-pass"
       MYSQL_TCP_PORT: "3207"
-    # No host port binding: reach it from the attack box at database:3207 on the lab network.
+    ports: ["${DB_HOST_PORT:-3207}:3207"]
     volumes:
       - ./build/database/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
@@ -63,7 +63,7 @@ services:
       DB_PASSWORD: "portal-pass"
       DB_NAME: "portal"
       PORTAL_API_KEY: "vendor-demo-key"
-    # No host port binding: reach it from the attack box at web:3206 on the lab network.
+    ports: ["${WEB_PORT:-3206}:3206"]
 
 volumes:
   ctf-evidence:
