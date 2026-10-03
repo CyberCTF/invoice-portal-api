@@ -1,5 +1,5 @@
 ---
-description: Where a lab runs (Docker, local VM, home lab, cloud) and the deploy/ layer that makes every lab run everywhere
+description: Where a lab runs (Docker, local VM, server, cloud) and the deploy/ layer that makes every lab run everywhere
 globs: ["deploy/**", "docker-compose.yml", ".ctf/metadata.json", "lab.json"]
 alwaysApply: true
 ---
@@ -14,8 +14,8 @@ other targets run that same compose file on a **lab host**: a Debian 12 VM confi
 | --- | --- | --- | --- |
 | Docker | This machine | `docker compose` | `docker-compose.yml` |
 | Local VM | This machine (VM) | Vagrant | `deploy/vagrant/Vagrantfile` |
-| Home lab, ESXi | Their ESXi host | Vagrant + `vagrant-vmware-esxi` | `deploy/vagrant/Vagrantfile` |
-| Home lab, Proxmox | Their Proxmox host | Terraform `bpg/proxmox` | `deploy/terraform/proxmox/` |
+| Server, ESXi | Their ESXi host | Vagrant + `vagrant-vmware-esxi` | `deploy/vagrant/Vagrantfile` |
+| Server, Proxmox | Their Proxmox host | Terraform `bpg/proxmox` | `deploy/terraform/proxmox/` |
 | Cloud | AWS | Terraform `hashicorp/aws` | `deploy/terraform/aws/` |
 
 ## Rules

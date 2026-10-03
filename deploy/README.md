@@ -9,7 +9,7 @@ deploy/
   ansible/site.yml                 # lab host: Docker + compose up (+ optional attack box)
   cloud-init/user-data.yaml.tftpl  # Terraform targets: fetch lab @commit, run site.yml
   vagrant/Vagrantfile              # local VM (virtualbox, vmware_desktop, parallels, hyperv, libvirt) + ESXi
-  terraform/proxmox/               # home lab: Proxmox VE (bpg/proxmox)
+  terraform/proxmox/               # server: Proxmox VE (bpg/proxmox)
   terraform/aws/                   # cloud: AWS EC2
 ```
 
@@ -43,6 +43,6 @@ AWS: same with `deploy/terraform/aws`, AWS credentials in the environment
 | Evidence claim | `CTF_API_URL`, `CTF_LAUNCH_TOKEN` | `ctf_api_url`, `ctf_launch_token` |
 | Attack box | `CYBERCTF_ATTACKBOX_IMAGE` | `attackbox_image` |
 | Lab source | copied from this folder | `lab_repository`, `lab_commit`, `lab_slug` |
-| Home-lab connection | `CYBERCTF_ESXI_*` | `proxmox_*` |
+| Server connection | `CYBERCTF_ESXI_*` | `proxmox_*` |
 | Cloud | | `region`, `instance_type`, `allowed_cidr`; AWS keys as `AWS_*` env |
 | Launcher SSH key ("Open shell") | Vagrant's own key | `ssh_public_key` (user from the `ssh_user` output) |

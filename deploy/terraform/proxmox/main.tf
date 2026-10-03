@@ -1,4 +1,4 @@
-# Lab host on the player's Proxmox VE (home lab), with the bpg/proxmox provider.
+# Lab host on the player's Proxmox VE (server), with the bpg/proxmox provider.
 # A Debian 12 cloud image VM; cloud-init fetches the lab and runs deploy/ansible/site.yml.
 # The launcher runs this in the hashicorp/terraform container with TF_VAR_* set.
 

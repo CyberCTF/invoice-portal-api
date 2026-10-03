@@ -1,9 +1,9 @@
 # Lab host VM for this lab: a Debian 12 VM that runs the lab's docker-compose.yml.
 # Local hypervisors (virtualbox, vmware_desktop, parallels, hyperv, libvirt) and
-# a home-lab ESXi host (vmware_esxi). The launcher runs this with
+# an ESXi server (vmware_esxi). The launcher runs this with
 #   vagrant up --provider <id>
-# and passes the evidence claim + home-lab connection as environment variables
-# (contract: cyber-ctf-desktop docs/homelab.md).
+# and passes the evidence claim + server connection as environment variables
+# (contract: cyber-ctf-desktop docs/server.md).
 
 LAB_DIR = File.expand_path("../..", __dir__)
 
@@ -57,7 +57,7 @@ Vagrant.configure("2") do |config|
     v.memory = 4096
   end
 
-  # Home lab: the player's ESXi host (plugin vagrant-vmware-esxi, uses vmware_desktop boxes).
+  # Server: the player's ESXi host (plugin vagrant-vmware-esxi, uses vmware_desktop boxes).
   config.vm.provider "vmware_esxi" do |esxi|
     esxi.esxi_hostname = ENV["CYBERCTF_ESXI_HOSTNAME"]
     esxi.esxi_hostport = Integer(ENV.fetch("CYBERCTF_ESXI_HOSTPORT", "22"))

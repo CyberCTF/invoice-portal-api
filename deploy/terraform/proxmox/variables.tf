@@ -1,4 +1,4 @@
-# Connection (from the launcher's home-lab host profile).
+# Connection (from the launcher's server profile).
 variable "proxmox_endpoint" {
   type        = string
   description = "https://<host>:8006/"

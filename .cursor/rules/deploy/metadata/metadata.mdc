@@ -55,7 +55,7 @@ alwaysApply: true
 
 - providers
   - Where the lab can run besides plain Docker on the player's machine. Every lab runs as Docker; each id here is an extra target that runs the same `docker-compose.yml` on a lab host VM (see `.cursor/rules/deploy/targets/TARGETS.mdc`).
-  - Allowed: `virtualbox`, `vmware_desktop`, `parallels`, `hyperv`, `libvirt` (local VM), `vmware_esxi`, `proxmox` (home lab), `aws` (cloud).
+  - Allowed: `virtualbox`, `vmware_desktop`, `parallels`, `hyperv`, `libvirt` (local VM), `vmware_esxi`, `proxmox` (server), `aws` (cloud).
   - Default for a template lab: all of them. Remove an id only if the target can't run the lab (e.g. it needs more than one VM).
   - Example: `["virtualbox", "vmware_desktop", "parallels", "hyperv", "libvirt", "vmware_esxi", "proxmox", "aws"]`
 
