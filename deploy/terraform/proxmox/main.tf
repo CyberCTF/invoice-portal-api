@@ -4,6 +4,8 @@
 
 terraform {
   required_version = ">= 1.6"
+  # The launcher keeps state outside the lab folder: -backend-config=path=...
+  backend "local" {}
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
@@ -22,6 +24,14 @@ provider "proxmox" {
     agent    = false
     username = split("@", var.proxmox_username)[0]
     password = var.proxmox_password
+    # Reach the node at the address the player entered, not the one it reports.
+    dynamic "node" {
+      for_each = var.proxmox_ssh_address == "" ? [] : [var.proxmox_ssh_address]
+      content {
+        name    = var.proxmox_node
+        address = node.value
+      }
+    }
   }
 }
 

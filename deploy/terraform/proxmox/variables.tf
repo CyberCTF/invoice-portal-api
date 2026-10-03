@@ -16,6 +16,11 @@ variable "proxmox_insecure" {
   default     = false
   description = "Accept a self-signed API certificate"
 }
+variable "proxmox_ssh_address" {
+  type        = string
+  default     = ""
+  description = "Node address for SSH (snippet upload); empty = the address the node reports"
+}
 variable "proxmox_node" {
   type    = string
   default = "pve"

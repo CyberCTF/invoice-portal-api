@@ -5,6 +5,8 @@
 
 terraform {
   required_version = ">= 1.6"
+  # The launcher keeps state outside the lab folder: -backend-config=path=...
+  backend "local" {}
   required_providers {
     aws = {
       source  = "hashicorp/aws"

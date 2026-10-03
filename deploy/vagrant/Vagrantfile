@@ -19,12 +19,14 @@ Vagrant.configure("2") do |config|
     config.vm.provision "file", source: File.join(LAB_DIR, path), destination: "/tmp/lab/#{path}"
   end
   config.vm.provision "shell", inline: "rm -rf /opt/lab && mv /tmp/lab /opt/lab"
+  # ansible-core only: Debian's full "ansible" package takes minutes to byte-compile.
+  config.vm.provision "shell", inline: "command -v ansible-playbook >/dev/null || (apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ansible-core)"
 
   # Ansible runs inside the VM (installed there by Vagrant), never on the player's machine.
   config.vm.provision "ansible_local" do |a|
     a.provisioning_path = "/opt/lab/deploy/ansible"
     a.playbook = "site.yml"
-    a.install_mode = "default"
+    a.install = false
     a.extra_vars = {
       ctf_api_url: ENV.fetch("CTF_API_URL", ""),
       ctf_launch_token: ENV.fetch("CTF_LAUNCH_TOKEN", ""),
