@@ -61,6 +61,7 @@ resource "proxmox_virtual_environment_file" "user_data" {
       ctf_api_url      = var.ctf_api_url
       ctf_launch_token = var.ctf_launch_token
       attackbox_image  = var.attackbox_image
+      ssh_public_key   = var.ssh_public_key
     })
   }
 }

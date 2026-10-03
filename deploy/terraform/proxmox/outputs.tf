@@ -1,3 +1,7 @@
+output "ssh_user" {
+  value = "debian"
+}
+
 output "vm_id" {
   value = proxmox_virtual_environment_vm.labhost.vm_id
 }

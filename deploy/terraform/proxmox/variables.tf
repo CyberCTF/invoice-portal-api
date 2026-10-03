@@ -65,6 +65,11 @@ variable "ctf_launch_token" {
   default   = ""
   sensitive = true
 }
+variable "ssh_public_key" {
+  type        = string
+  default     = ""
+  description = "Public key allowed to SSH in as the image's default user (debian)"
+}
 variable "attackbox_image" {
   type    = string
   default = ""

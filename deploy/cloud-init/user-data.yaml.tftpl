@@ -1,6 +1,11 @@
 #cloud-config
 # Lab host bootstrap for Terraform targets (Proxmox, AWS): fetch the lab at its pinned
 # commit, then run deploy/ansible/site.yml locally. Rendered by templatefile().
+%{ if ssh_public_key != "" ~}
+# The launcher's key, for "Open shell" (ssh to the distro's default user, then the attack box).
+ssh_authorized_keys:
+  - ${ssh_public_key}
+%{ endif ~}
 package_update: true
 packages: [ansible-core, curl, ca-certificates, qemu-guest-agent]
 write_files:

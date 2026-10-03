@@ -89,6 +89,7 @@ resource "aws_instance" "labhost" {
     ctf_api_url      = var.ctf_api_url
     ctf_launch_token = var.ctf_launch_token
     attackbox_image  = var.attackbox_image
+    ssh_public_key   = var.ssh_public_key
   })
   # A new launch token means a new instance (cloud-init only runs on first boot).
   user_data_replace_on_change = true
