@@ -1,0 +1,46 @@
+# deploy/
+
+Runs this lab somewhere other than plain Docker on the player's machine. Every target
+builds a **lab host** (Debian 12 VM) and runs the lab's `docker-compose.yml` on it with
+`ansible/site.yml`. The CyberCTF launcher drives this; you can also run it by hand.
+
+```
+deploy/
+  ansible/site.yml                 # lab host: Docker + compose up (+ optional attack box)
+  cloud-init/user-data.yaml.tftpl  # Terraform targets: fetch lab @commit, run site.yml
+  vagrant/Vagrantfile              # local VM (virtualbox, vmware_desktop, parallels, hyperv, libvirt) + ESXi
+  terraform/proxmox/               # home lab: Proxmox VE (bpg/proxmox)
+  terraform/aws/                   # cloud: AWS EC2
+```
+
+## By hand
+
+Local VM:
+
+```sh
+cd deploy/vagrant && vagrant up --provider virtualbox
+vagrant ssh -c "sudo docker compose -p lab -f /opt/lab/docker-compose.yml ps"
+```
+
+Proxmox (the node's `local` storage needs `iso` and `snippets` content):
+
+```sh
+cd deploy/terraform/proxmox
+docker run --rm -it -v "$PWD/../..:/deploy" -w /deploy/terraform/proxmox \
+  -e TF_VAR_proxmox_endpoint=https://pve.lan:8006/ -e TF_VAR_proxmox_username=root@pam \
+  -e TF_VAR_proxmox_password -e TF_VAR_proxmox_insecure=true \
+  -e TF_VAR_lab_slug=<slug> -e TF_VAR_lab_repository=CyberCTF/<repo> -e TF_VAR_lab_commit=<sha> \
+  hashicorp/terraform:1.16.5 apply
+```
+
+AWS: same with `deploy/terraform/aws`, AWS credentials in the environment
+(`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` or `AWS_PROFILE`), and `TF_VAR_region`.
+
+## Variables passed to every target
+
+| | Vagrant (env) | Terraform (`TF_VAR_*`) |
+| --- | --- | --- |
+| Evidence claim | `CTF_API_URL`, `CTF_LAUNCH_TOKEN` | `ctf_api_url`, `ctf_launch_token` |
+| Attack box | `CYBERCTF_ATTACKBOX_IMAGE` | `attackbox_image` |
+| Lab source | copied from this folder | `lab_repository`, `lab_commit`, `lab_slug` |
+| Home-lab connection | `CYBERCTF_ESXI_*` | `proxmox_*` |
