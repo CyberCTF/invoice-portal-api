@@ -35,8 +35,12 @@
         mode: "0644"
 
     - name: Docker apt repository
+      vars:
+        docker_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
       ansible.builtin.apt_repository:
-        repo: "deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        repo: >-
+          deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable
         filename: docker
 
     - name: Docker Engine + Compose
