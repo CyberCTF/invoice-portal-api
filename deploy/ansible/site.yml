@@ -58,10 +58,16 @@
           CTF_API_URL={{ ctf_api_url }}
           CTF_LAUNCH_TOKEN={{ ctf_launch_token }}
 
+    # Retried: on a slow host a service's first start (e.g. MySQL initialising) can outlast
+    # its healthcheck window; a second `up` succeeds once it is healthy.
     - name: Start the lab
       ansible.builtin.command:
         cmd: docker compose -p {{ lab_project }} up -d --build
         chdir: "{{ lab_dir }}"
+      register: lab_up
+      retries: 6
+      delay: 30
+      until: lab_up.rc == 0
       changed_when: true
 
     - name: Attack box on the lab network
