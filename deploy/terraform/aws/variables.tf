@@ -12,6 +12,15 @@ variable "disk_gb" {
   type    = number
   default = 20
 }
+variable "auto_stop_hours" {
+  type        = number
+  default     = 4
+  description = "Terminate the instance this many hours after boot (0 = never)"
+  validation {
+    condition     = var.auto_stop_hours >= 0 && var.auto_stop_hours <= 72
+    error_message = "auto_stop_hours must be between 0 and 72."
+  }
+}
 variable "ssh_public_key" {
   type        = string
   default     = ""

@@ -15,6 +15,11 @@ write_files:
       CTF_API_URL=${ctf_api_url}
       CTF_LAUNCH_TOKEN=${ctf_launch_token}
 runcmd:
+%{ if auto_stop_minutes > 0 ~}
+  # Auto-stop: power off after the limit, counted from boot. On AWS the instance is set
+  # to terminate on shutdown, so a forgotten lab stops billing.
+  - [systemd-run, --on-active=${auto_stop_minutes}m, --timer-property=AccuracySec=1m, systemctl, poweroff]
+%{ endif ~}
   - [systemctl, enable, --now, qemu-guest-agent]
   - [mkdir, -p, /opt/lab]
   - [sh, -c, "curl -fsSL https://codeload.github.com/${lab_repository}/tar.gz/${lab_commit} | tar -xz --strip-components=1 -C /opt/lab"]

@@ -84,15 +84,18 @@ resource "aws_instance" "labhost" {
   vpc_security_group_ids = [aws_security_group.labhost.id]
 
   user_data = templatefile("${path.module}/../../cloud-init/user-data.yaml.tftpl", {
-    lab_repository   = var.lab_repository
-    lab_commit       = var.lab_commit
-    ctf_api_url      = var.ctf_api_url
-    ctf_launch_token = var.ctf_launch_token
-    attackbox_image  = var.attackbox_image
-    ssh_public_key   = var.ssh_public_key
+    lab_repository    = var.lab_repository
+    lab_commit        = var.lab_commit
+    ctf_api_url       = var.ctf_api_url
+    ctf_launch_token  = var.ctf_launch_token
+    attackbox_image   = var.attackbox_image
+    ssh_public_key    = var.ssh_public_key
+    auto_stop_minutes = var.auto_stop_hours * 60
   })
   # A new launch token means a new instance (cloud-init only runs on first boot).
   user_data_replace_on_change = true
+  # Auto-stop powers the instance off; terminate rather than keep a stopped instance.
+  instance_initiated_shutdown_behavior = "terminate"
 
   root_block_device {
     volume_size = var.disk_gb

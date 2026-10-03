@@ -62,6 +62,8 @@ resource "proxmox_virtual_environment_file" "user_data" {
       ctf_launch_token = var.ctf_launch_token
       attackbox_image  = var.attackbox_image
       ssh_public_key   = var.ssh_public_key
+      # Your own hardware: no time limit.
+      auto_stop_minutes = 0
     })
   }
 }
