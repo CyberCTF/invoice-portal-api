@@ -76,7 +76,7 @@ resource "proxmox_virtual_environment_vm" "labhost" {
   }
   cpu {
     cores = var.cores
-    type  = "host"
+    type  = var.cpu_type
   }
   memory {
     dedicated = var.memory_mb

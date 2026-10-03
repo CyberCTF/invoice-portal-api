@@ -71,6 +71,11 @@ variable "attackbox_image" {
 }
 
 # Size.
+variable "cpu_type" {
+  type        = string
+  default     = "host"
+  description = "host = fastest (needs KVM); x86-64-v2-AES for mixed-CPU clusters. Lab images need at least x86-64-v2."
+}
 variable "cores" {
   type    = number
   default = 2
