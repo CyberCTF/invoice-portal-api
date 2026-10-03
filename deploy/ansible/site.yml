@@ -1,0 +1,73 @@
+# Configures a "lab host": a Debian 12 VM that runs this lab's docker-compose.yml.
+# Every VM target uses it, run INSIDE the VM against localhost (Vagrant ansible_local,
+# cloud-init on Proxmox/AWS), so nothing Ansible-related runs on the player's machine.
+#
+# Expects the lab checked out at {{ lab_dir }}. Variables (all optional):
+#   ctf_api_url, ctf_launch_token   evidence claim (empty = the lab's dev evidence)
+#   attackbox_image                 start an attack box on the lab network
+- name: Lab host
+  hosts: all
+  connection: local
+  become: true
+  vars:
+    lab_dir: /opt/lab
+    lab_project: lab
+    ctf_api_url: ""
+    ctf_launch_token: ""
+    attackbox_image: ""
+  tasks:
+    - name: Base packages
+      ansible.builtin.apt:
+        name: [ca-certificates, curl, gnupg, qemu-guest-agent]
+        update_cache: true
+
+    - name: Guest agent (lets hypervisors report the VM's IP)
+      ansible.builtin.service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true
+      failed_when: false
+
+    - name: Docker apt key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Docker apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch={{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        filename: docker
+
+    - name: Docker Engine + Compose
+      ansible.builtin.apt:
+        name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+        update_cache: true
+
+    - name: Docker running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Evidence claim settings (never baked into the image)
+      ansible.builtin.copy:
+        dest: "{{ lab_dir }}/.env"
+        mode: "0600"
+        content: |
+          CTF_API_URL={{ ctf_api_url }}
+          CTF_LAUNCH_TOKEN={{ ctf_launch_token }}
+
+    - name: Start the lab
+      ansible.builtin.command:
+        cmd: docker compose -p {{ lab_project }} up -d --build
+        chdir: "{{ lab_dir }}"
+      changed_when: true
+
+    - name: Attack box on the lab network
+      when: attackbox_image | length > 0
+      ansible.builtin.shell: |
+        docker rm -f attacker >/dev/null 2>&1 || true
+        docker run -d --name attacker --hostname attacker \
+          --network {{ lab_project }}_default {{ attackbox_image }} sleep infinity
+      changed_when: true

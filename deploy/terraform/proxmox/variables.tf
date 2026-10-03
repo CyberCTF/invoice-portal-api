@@ -1,0 +1,80 @@
+# Connection (from the launcher's home-lab host profile).
+variable "proxmox_endpoint" {
+  type        = string
+  description = "https://<host>:8006/"
+}
+variable "proxmox_username" {
+  type        = string
+  description = "user@realm, e.g. root@pam"
+}
+variable "proxmox_password" {
+  type      = string
+  sensitive = true
+}
+variable "proxmox_insecure" {
+  type        = bool
+  default     = false
+  description = "Accept a self-signed API certificate"
+}
+variable "proxmox_node" {
+  type    = string
+  default = "pve"
+}
+variable "proxmox_storage" {
+  type        = string
+  default     = "local-lvm"
+  description = "Storage for the VM disk"
+}
+variable "proxmox_image_storage" {
+  type        = string
+  default     = "local"
+  description = "Storage with 'iso' content for the Debian cloud image"
+}
+variable "proxmox_snippet_storage" {
+  type        = string
+  default     = "local"
+  description = "Storage with 'snippets' content for cloud-init"
+}
+variable "proxmox_bridge" {
+  type    = string
+  default = "vmbr0"
+}
+
+# The lab (from the launch spec).
+variable "lab_slug" {
+  type = string
+}
+variable "lab_repository" {
+  type        = string
+  description = "GitHub owner/name"
+}
+variable "lab_commit" {
+  type = string
+}
+variable "ctf_api_url" {
+  type    = string
+  default = ""
+}
+variable "ctf_launch_token" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+variable "attackbox_image" {
+  type    = string
+  default = ""
+}
+
+# Size.
+variable "cores" {
+  type    = number
+  default = 2
+}
+variable "memory_mb" {
+  type    = number
+  default = 4096
+}
+variable "disk_gb" {
+  type    = number
+  default = 20
+}

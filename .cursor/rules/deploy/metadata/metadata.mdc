@@ -8,7 +8,7 @@ alwaysApply: true
 
 ## Purpose
 - Standardize lab metadata for publishing to the CyberCTF platform (CyberBackend).
-- Authored as `.ctf/metadata.json`; the generator commits it to the lab repository as `lab.json`, which the publish workflow reads. It is **public**: it must contain nothing secret (the development evidence is public by design).
+- Authored as `.ctf/metadata.json` and committed to the lab repository as `lab.json`, which publishing reads. It is **public**: it must contain nothing secret (the development evidence is public by design).
 
 ## Required Fields
 
@@ -53,6 +53,12 @@ alwaysApply: true
   - Player-facing prompt saying what evidence to bring back and in which form, without hinting at the exploit.
   - Example: `Recover the finance analyst's credentials (username:password).`
 
+- providers
+  - Where the lab can run besides plain Docker on the player's machine. Every lab runs as Docker; each id here is an extra target that runs the same `docker-compose.yml` on a lab host VM (see `.cursor/rules/deploy/targets/TARGETS.mdc`).
+  - Allowed: `virtualbox`, `vmware_desktop`, `parallels`, `hyperv`, `libvirt` (local VM), `vmware_esxi`, `proxmox` (home lab), `aws` (cloud).
+  - Default for a template lab: all of them. Remove an id only if the target can't run the lab (e.g. it needs more than one VM).
+  - Example: `["virtualbox", "vmware_desktop", "parallels", "hyperv", "libvirt", "vmware_esxi", "proxmox", "aws"]`
+
 ## Example JSON
 
 ```json
@@ -67,12 +73,13 @@ alwaysApply: true
   "evidence_params": { "username": "analyst2686" },
   "dev_evidence": "analyst2686:Dev-Only-Pa55!",
   "capabilities": ["union-sql-injection-exploit-postgresql", "sql-injection-detect-postgresql"],
-  "question": "Recover the finance analyst's credentials (username:password)."
+  "question": "Recover the finance analyst's credentials (username:password).",
+  "providers": ["virtualbox", "vmware_desktop", "parallels", "hyperv", "libvirt", "vmware_esxi", "proxmox", "aws"]
 }
 ```
 
 ## Strict Schema (no extra fields)
-- MUST contain ONLY: `project_name`, `slug`, `title`, `description`, `category`, `difficulty`, `evidence_kind`, `evidence_params`, `dev_evidence`, `capabilities`, `question`.
+- MUST contain ONLY: `project_name`, `slug`, `title`, `description`, `category`, `difficulty`, `evidence_kind`, `evidence_params`, `dev_evidence`, `capabilities`, `question`, `providers`.
 - Reject legacy or unknown keys, in particular `flag`, `flag_format`, `flag_type`, `points`, `id`, `services`, `questions`, `estimated_time`.
 
 ## Validation Failures (Block Merge)

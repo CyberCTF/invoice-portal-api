@@ -6,8 +6,24 @@
   "category": "web",
   "difficulty": 1,
   "evidence_kind": "AMOUNT",
-  "evidence_params": {"min": 1000, "max": 99999},
+  "evidence_params": {
+    "min": 1000,
+    "max": 99999
+  },
   "dev_evidence": "15600.00",
-  "capabilities": ["rest-api-read-http", "http-request-headers"],
-  "question": "Report the amount of invoice INV-20507 from the portal API."
+  "capabilities": [
+    "rest-api-read-http",
+    "http-request-headers"
+  ],
+  "question": "Report the amount of invoice INV-20507 from the portal API.",
+  "providers": [
+    "virtualbox",
+    "vmware_desktop",
+    "parallels",
+    "hyperv",
+    "libvirt",
+    "vmware_esxi",
+    "proxmox",
+    "aws"
+  ]
 }
