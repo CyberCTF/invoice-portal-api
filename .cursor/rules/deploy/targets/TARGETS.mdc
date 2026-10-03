@@ -1,0 +1,35 @@
+---
+description: Where a lab runs (Docker, local VM, home lab, cloud) and the deploy/ layer that makes every lab run everywhere
+globs: ["deploy/**", "docker-compose.yml", ".ctf/metadata.json", "lab.json"]
+alwaysApply: true
+---
+
+# DEPLOY TARGETS
+
+One lab, every target. `docker-compose.yml` is the single definition of the lab. The
+other targets run that same compose file on a **lab host**: a Debian 12 VM configured by
+`deploy/ansible/site.yml`.
+
+| Target | Player picks | Built by | Lives in |
+| --- | --- | --- | --- |
+| Docker | This machine | `docker compose` | `docker-compose.yml` |
+| Local VM | This machine (VM) | Vagrant | `deploy/vagrant/Vagrantfile` |
+| Home lab, ESXi | Their ESXi host | Vagrant + `vagrant-vmware-esxi` | `deploy/vagrant/Vagrantfile` |
+| Home lab, Proxmox | Their Proxmox host | Terraform `bpg/proxmox` | `deploy/terraform/proxmox/` |
+| Cloud | AWS | Terraform `hashicorp/aws` | `deploy/terraform/aws/` |
+
+## Rules
+
+- `deploy/` is template code: copy it unchanged into every lab. Lab-specific work stays in
+  `docker-compose.yml`, `build/`, `evidence/`.
+- Ansible always runs **inside** the lab host against localhost (Vagrant `ansible_local`,
+  cloud-init on Terraform targets). Never require Ansible on the player's machine
+  (it doesn't run on Windows).
+- Terraform targets fetch the lab from GitHub at the pinned commit
+  (`codeload.github.com/<repo>/tar.gz/<sha>`): the lab repository must be public.
+- No host port bindings in compose: services are reached from the attack box on the
+  lab network, on every target (the attack box runs next to the lab, on the lab host).
+- Secrets: the launch token reaches the VM only as the compose `.env` (0600) or the
+  cloud-init file `/etc/cyberctf/lab.env` (0600). Never commit `.env`, `*.tfvars`, state.
+- A lab that needs several machines (pfSense, AD) adds them to the Vagrantfile and
+  Terraform modules and drops targets it can't support from `providers` in metadata.

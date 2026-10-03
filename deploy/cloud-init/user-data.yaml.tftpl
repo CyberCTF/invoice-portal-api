@@ -1,0 +1,17 @@
+#cloud-config
+# Lab host bootstrap for Terraform targets (Proxmox, AWS): fetch the lab at its pinned
+# commit, then run deploy/ansible/site.yml locally. Rendered by templatefile().
+package_update: true
+packages: [ansible-core, curl, ca-certificates, qemu-guest-agent]
+write_files:
+  - path: /etc/cyberctf/lab.env
+    permissions: "0600"
+    content: |
+      CTF_API_URL=${ctf_api_url}
+      CTF_LAUNCH_TOKEN=${ctf_launch_token}
+runcmd:
+  - [systemctl, enable, --now, qemu-guest-agent]
+  - [mkdir, -p, /opt/lab]
+  - [sh, -c, "curl -fsSL https://codeload.github.com/${lab_repository}/tar.gz/${lab_commit} | tar -xz --strip-components=1 -C /opt/lab"]
+  - [sh, -c, ". /etc/cyberctf/lab.env && ansible-playbook -i localhost, -c local /opt/lab/deploy/ansible/site.yml -e ctf_api_url=\"$CTF_API_URL\" -e ctf_launch_token=\"$CTF_LAUNCH_TOKEN\" -e attackbox_image=${attackbox_image} > /var/log/cyberctf-lab.log 2>&1"]
+  - [touch, /var/lib/cyberctf-lab-ready]

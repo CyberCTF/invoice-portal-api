@@ -1,2 +1,10 @@
 .idea/
 .vscode/*
+
+# Deploy targets: local state never goes into the lab repo.
+.vagrant/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.env
