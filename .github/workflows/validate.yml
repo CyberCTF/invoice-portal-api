@@ -26,6 +26,8 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.16.5
+          # The wrapper swallows piped stdin, which `terraform console` needs.
+          terraform_wrapper: false
       - name: fmt
         run: terraform fmt -check -recursive -diff deploy/terraform
       - name: validate
@@ -39,7 +41,7 @@ jobs:
         run: |
           for args in 'ssh_public_key="ssh-ed25519 AAAA test", auto_stop_minutes=240' 'ssh_public_key="", auto_stop_minutes=0'; do
             echo "templatefile(\"deploy/cloud-init/user-data.yaml.tftpl\", {lab_repository=\"CyberCTF/x\", lab_commit=\"abc\", ctf_api_url=\"\", ctf_launch_token=\"\", attackbox_image=\"\", $args})" \
-              | terraform console | sed '1d;$d' > /tmp/user-data.yaml
+              | timeout 60 terraform console | sed '1d;$d' > /tmp/user-data.yaml
             python3 -c "import yaml,sys; d=yaml.safe_load(open('/tmp/user-data.yaml')); assert 'runcmd' in d, 'no runcmd'"
           done
 
