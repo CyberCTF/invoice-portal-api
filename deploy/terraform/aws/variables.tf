@@ -5,12 +5,14 @@ variable "region" {
   default = "eu-west-3"
 }
 variable "instance_type" {
-  type    = string
-  default = "t3.medium"
+  type        = string
+  default     = null
+  description = "Empty = sized from the lab's resources (t3.medium up to 4 GB, t3.large up to 8 GB, else t3.xlarge)"
 }
 variable "disk_gb" {
-  type    = number
-  default = 20
+  type        = number
+  default     = null
+  description = "Empty = the lab's resources.disk_gb, else 20"
 }
 variable "auto_stop_hours" {
   type        = number

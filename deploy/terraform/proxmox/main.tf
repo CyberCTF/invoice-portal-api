@@ -35,18 +35,52 @@ provider "proxmox" {
   }
 }
 
+# A short random id per deployment, stable across re-applies, so two deployments of the
+# same lab on one node never collide (VM name, snippet, image file).
+resource "terraform_data" "deployment" {
+  input = substr(replace(uuid(), "-", ""), 0, 8)
+  lifecycle {
+    ignore_changes = [input]
+  }
+}
+
 locals {
-  name = "cyberctf-${var.lab_slug}"
+  name = "cyberctf-${var.lab_slug}-${terraform_data.deployment.output}"
+  # Sizing the lab asks for in .ctf/metadata.json ("resources"), when the lab ships it.
+  resources = try(jsondecode(file("${path.module}/../../../.ctf/metadata.json")).resources, {})
+  cores     = coalesce(var.cores, try(local.resources.cpus, null), 2)
+  memory_mb = coalesce(var.memory_mb, try(local.resources.memory_mb, null), 4096)
+  disk_gb   = coalesce(var.disk_gb, try(local.resources.disk_gb, null), 20)
+
+  stores      = { for d in data.proxmox_datastores.node.datastores : d.id => d.content_types }
+  image_ok    = contains(try(local.stores[var.proxmox_image_storage], []), "iso")
+  snippets_ok = contains(try(local.stores[var.proxmox_snippet_storage], []), "snippets")
+  enable_hint = "In the Proxmox web UI: Datacenter > Storage > select it > Edit > Content"
+}
+
+# What each storage on the node accepts, to fail early with a fix instead of mid-upload.
+data "proxmox_datastores" "node" {
+  node_name = var.proxmox_node
 }
 
 resource "proxmox_download_file" "debian" {
-  node_name           = var.proxmox_node
-  datastore_id        = var.proxmox_image_storage
-  content_type        = "iso"
-  url                 = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2"
-  file_name           = "cyberctf-debian-12-genericcloud-amd64.img"
+  node_name    = var.proxmox_node
+  datastore_id = var.proxmox_image_storage
+  content_type = "iso"
+  url          = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2"
+  # Per deployment: a shared file would be deleted by whichever lab is destroyed first,
+  # and two launches at once would race on it.
+  file_name           = "${local.name}-debian-12-amd64.img"
   overwrite           = false
   overwrite_unmanaged = true
+  upload_timeout      = 1800
+
+  lifecycle {
+    precondition {
+      condition     = local.image_ok
+      error_message = "Storage '${var.proxmox_image_storage}' on ${var.proxmox_node} doesn't accept ISO images. ${local.enable_hint}, add 'ISO image'."
+    }
+  }
 }
 
 resource "proxmox_virtual_environment_file" "user_data" {
@@ -66,6 +100,13 @@ resource "proxmox_virtual_environment_file" "user_data" {
       auto_stop_minutes = 0
     })
   }
+
+  lifecycle {
+    precondition {
+      condition     = local.snippets_ok
+      error_message = "Storage '${var.proxmox_snippet_storage}' on ${var.proxmox_node} doesn't accept snippets, which carry the lab host's cloud-init. ${local.enable_hint}, add 'Snippets'."
+    }
+  }
 }
 
 resource "proxmox_virtual_environment_vm" "labhost" {
@@ -78,17 +119,17 @@ resource "proxmox_virtual_environment_vm" "labhost" {
     enabled = true
   }
   cpu {
-    cores = var.cores
+    cores = local.cores
     type  = var.cpu_type
   }
   memory {
-    dedicated = var.memory_mb
+    dedicated = local.memory_mb
   }
   disk {
     datastore_id = var.proxmox_storage
     file_id      = proxmox_download_file.debian.id
     interface    = "virtio0"
-    size         = var.disk_gb
+    size         = local.disk_gb
     discard      = "on"
   }
   network_device {

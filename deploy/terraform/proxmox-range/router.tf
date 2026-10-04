@@ -105,11 +105,12 @@ locals {
 }
 
 resource "proxmox_download_file" "debian" {
-  node_name           = var.proxmox_node
-  datastore_id        = var.proxmox_image_storage
-  content_type        = "iso"
-  url                 = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2"
-  file_name           = "cyberctf-debian-12-genericcloud-amd64.img"
+  node_name    = var.proxmox_node
+  datastore_id = var.proxmox_image_storage
+  content_type = "iso"
+  url          = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2"
+  # Per range: a shared file would be deleted by whichever range is destroyed first.
+  file_name           = "ctf${var.range_number}-debian-12-amd64.img"
   overwrite           = false
   overwrite_unmanaged = true
 }

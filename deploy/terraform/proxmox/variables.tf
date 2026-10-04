@@ -81,15 +81,16 @@ variable "cpu_type" {
   default     = "host"
   description = "host = fastest (needs KVM); x86-64-v2-AES for mixed-CPU clusters. Lab images need at least x86-64-v2."
 }
+# Size: empty = the lab's .ctf/metadata.json "resources", else 2 cores / 4096 MB / 20 GB.
 variable "cores" {
   type    = number
-  default = 2
+  default = null
 }
 variable "memory_mb" {
   type    = number
-  default = 4096
+  default = null
 }
 variable "disk_gb" {
   type    = number
-  default = 20
+  default = null
 }
