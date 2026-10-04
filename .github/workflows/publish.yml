@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Register the lab with CyberCTF
+        # The template itself has no lab to register.
+        if: hashFiles('.ctf/metadata.json') != ''
         env:
           CYBERAUTH_CLIENT_ID: ${{ secrets.CYBERAUTH_CLIENT_ID }}
           CYBERAUTH_CLIENT_SECRET: ${{ secrets.CYBERAUTH_CLIENT_SECRET }}
