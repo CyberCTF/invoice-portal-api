@@ -36,6 +36,23 @@ docker run --rm -it -v "$PWD/../..:/deploy" -w /deploy/terraform/proxmox \
 AWS: same with `deploy/terraform/aws`, AWS credentials in the environment
 (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` or `AWS_PROFILE`), and `TF_VAR_region`.
 
+## What a target guarantees
+
+- **A clear outcome.** On Proxmox and AWS, cloud-init runs `/usr/local/sbin/cyberctf-bootstrap`,
+  which writes `/var/lib/cyberctf/status` (`running: <step>`, `ready` or `failed: <step>`) and
+  logs to `/var/log/cyberctf-lab.log`. The modules output `ready_file`; the launcher waits on
+  it over SSH after `apply`, so "running" means the lab is up. Vagrant targets fail `vagrant up`
+  instead.
+- **Retries** on every network step (apt, the lab download, the attack box image).
+- **No collisions.** Resource names carry a random id per deployment
+  (`cyberctf-<slug>-<id>`), so the same lab can run twice in one account or on one node.
+- **Early, actionable errors.** Proxmox checks that the image storage accepts ISO images and
+  the snippet storage accepts snippets before uploading anything. AWS builds its own small
+  VPC, so it doesn't depend on the account's default VPC.
+- **Sizing from the lab.** `resources` in `.ctf/metadata.json` (`cpus`, `memory_mb`,
+  `disk_gb`) sizes the lab host on every target.
+- **The attack box joins every network** of the lab, not just the default one.
+
 ## Variables passed to every target
 
 | | Vagrant (env) | Terraform (`TF_VAR_*`) |
