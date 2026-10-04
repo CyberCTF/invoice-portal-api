@@ -25,7 +25,8 @@ terraform {
 }
 
 provider "google" {
-  # project comes from GOOGLE_PROJECT; credentials from gcloud application-default login.
+  # Credentials from gcloud application-default login. No default project: each lab creates its
+  # own project (below) and every resource targets it explicitly.
   region = var.region
   zone   = "${var.region}-b"
 }
@@ -53,14 +54,40 @@ locals {
     "cyberctf-lab" = var.lab_slug
     "managed-by"   = "cyberctf"
   }
+  # Project id: globally unique, <= 30 chars, lowercase. "cyberctf-" + 8 hex = 17 chars.
+  project_id = "cyberctf-${terraform_data.deployment.output}"
+}
+
+# Each lab gets its own throwaway GCP project, deleted on destroy (nothing to clean up by hand).
+# Needs a billing account to create resources, and project-create rights on the org (or a
+# personal / no-org account, when org_id is empty).
+resource "google_project" "lab" {
+  name            = substr("cyberctf-${var.lab_slug}", 0, 30)
+  project_id      = local.project_id
+  billing_account = var.billing_account
+  org_id          = var.org_id != "" ? var.org_id : null
+  labels          = local.labels
+  # The google provider defaults to PREVENT; allow `terraform destroy` to delete the project.
+  deletion_policy = "DELETE"
+}
+
+# Compute API, enabled in the new project before anything uses it.
+resource "google_project_service" "compute" {
+  project                    = google_project.lab.project_id
+  service                    = "compute.googleapis.com"
+  disable_on_destroy         = false
+  disable_dependent_services = false
 }
 
 resource "google_compute_network" "lab" {
+  project                 = google_project.lab.project_id
   name                    = local.name
   auto_create_subnetworks = false
+  depends_on              = [google_project_service.compute]
 }
 
 resource "google_compute_subnetwork" "lab" {
+  project       = google_project.lab.project_id
   name          = local.name
   network       = google_compute_network.lab.id
   region        = var.region
@@ -70,6 +97,7 @@ resource "google_compute_subnetwork" "lab" {
 # Only SSH, only from the player. Egress to the internet is allowed by GCP's default; the lab
 # needs it to fetch images.
 resource "google_compute_firewall" "ssh" {
+  project       = google_project.lab.project_id
   count         = var.allowed_cidr == "" ? 0 : 1
   name          = "${local.name}-ssh"
   network       = google_compute_network.lab.id
@@ -83,11 +111,14 @@ resource "google_compute_firewall" "ssh" {
 }
 
 resource "google_compute_address" "labhost" {
-  name   = local.name
-  region = var.region
+  project    = google_project.lab.project_id
+  name       = local.name
+  region     = var.region
+  depends_on = [google_project_service.compute]
 }
 
 resource "google_compute_instance" "labhost" {
+  project      = google_project.lab.project_id
   name         = local.name
   machine_type = local.machine_type
   zone         = "${var.region}-b"

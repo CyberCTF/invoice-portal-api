@@ -21,6 +21,16 @@ write_files:
       ATTACKBOX_IMAGE=${attackbox_image}
       LAB_REPOSITORY=${lab_repository}
       LAB_COMMIT=${lab_commit}
+  # Ansible extra-vars as a 0600 file, so the launch token is passed to ansible-playbook via
+  # `-e @file` and never appears on the command line (where it would show in `ps`).
+  - path: /etc/cyberctf/lab-vars.json
+    permissions: "0600"
+    content: |
+      {
+        "ctf_api_url": "${ctf_api_url}",
+        "ctf_launch_token": "${ctf_launch_token}",
+        "attackbox_image": "${attackbox_image}"
+      }
   - path: /usr/local/sbin/cyberctf-bootstrap
     permissions: "0755"
     content: |
@@ -58,7 +68,7 @@ write_files:
 
       step "starting the lab"
       ansible-playbook -i localhost, -c local /opt/lab/deploy/ansible/site.yml \
-        -e ctf_api_url="$CTF_API_URL" -e ctf_launch_token="$CTF_LAUNCH_TOKEN" -e attackbox_image="$ATTACKBOX_IMAGE" \
+        -e @/etc/cyberctf/lab-vars.json \
         || fail "starting the lab"
 
       echo ready > "$STATUS"

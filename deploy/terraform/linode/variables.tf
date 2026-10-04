@@ -1,24 +1,19 @@
-# Credentials come from the Azure CLI (`az login`) / the standard ARM_* environment, never
-# from variables. The subscription is the CLI's default or ARM_SUBSCRIPTION_ID.
+# The API token comes from LINODE_TOKEN (set by the launcher from the keychain), never from a
+# variable.
 variable "region" {
   type        = string
-  default     = "westeurope"
-  description = "Azure location (kept named `region` to match the launcher's contract)."
+  default     = "eu-central"
+  description = "Linode region slug, e.g. eu-central, us-east, ap-south."
 }
 variable "instance_type" {
   type        = string
   default     = null
-  description = "Azure VM size. Empty = sized from the lab's resources (B2s up to 4 GB, B2ms up to 8 GB, else B4ms)."
-}
-variable "disk_gb" {
-  type        = number
-  default     = null
-  description = "Empty = the lab's resources.disk_gb, else 30"
+  description = "Linode type. Empty = sized from the lab's resources (g6-standard-2 up to 4 GB, g6-standard-4 up to 8 GB, else g6-standard-6)."
 }
 variable "auto_stop_hours" {
   type        = number
   default     = 4
-  description = "Power the VM off this many hours after boot (0 = never)"
+  description = "Power the Linode off this many hours after boot (0 = never)"
   validation {
     condition     = var.auto_stop_hours >= 0 && var.auto_stop_hours <= 72
     error_message = "auto_stop_hours must be between 0 and 72."
@@ -27,7 +22,7 @@ variable "auto_stop_hours" {
 variable "ssh_public_key" {
   type        = string
   default     = ""
-  description = "Public key for SSH into the lab host (Azure Linux VMs require one)"
+  description = "Public key for SSH into the lab host (added to the Linode)"
 }
 variable "allowed_cidr" {
   type        = string

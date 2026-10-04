@@ -55,9 +55,15 @@ alwaysApply: true
 
 - providers
   - Where the lab can run besides plain Docker on the player's machine. Every lab runs as Docker; each id here is an extra target that runs the same `docker-compose.yml` on a lab host VM (see `.cursor/rules/deploy/targets/TARGETS.mdc`).
-  - Allowed: `virtualbox`, `vmware_desktop`, `parallels`, `hyperv`, `libvirt` (local VM), `vmware_esxi`, `proxmox` (server), `aws` (cloud).
+  - Allowed: `virtualbox`, `vmware_desktop`, `parallels`, `hyperv`, `libvirt` (local VM), `vmware_esxi`, `proxmox` (server), `aws`, `azure`, `gcp`, `digitalocean`, `linode`, `oci` (cloud).
   - Default for a template lab: all of them. Remove an id only if the target can't run the lab (e.g. it needs more than one VM).
-  - Example: `["virtualbox", "vmware_desktop", "parallels", "hyperv", "libvirt", "vmware_esxi", "proxmox", "aws"]`
+  - Example: `["virtualbox", "vmware_desktop", "parallels", "hyperv", "libvirt", "vmware_esxi", "proxmox", "aws", "azure", "gcp", "digitalocean", "linode", "oci"]`
+
+- resources (optional)
+  - What the lab host VM needs when the lab runs on a VM, server or cloud target. Omit it for the default: 2 CPUs, 4096 MB, 20 GB.
+  - Keys (all optional, integers): `cpus`, `memory_mb`, `disk_gb`. Read by `deploy/vagrant/Vagrantfile` and `deploy/terraform/*` (on AWS, `memory_mb` picks the instance size: t3.medium up to 4096, t3.large up to 8192, else t3.xlarge).
+  - Only raise it when the stack needs it (e.g. Elasticsearch, several databases): bigger hosts cost players money in the cloud.
+  - Example: `{"cpus": 4, "memory_mb": 8192, "disk_gb": 40}`
 
 ## Example JSON
 
@@ -74,12 +80,12 @@ alwaysApply: true
   "dev_evidence": "analyst2686:Dev-Only-Pa55!",
   "capabilities": ["union-sql-injection-exploit-postgresql", "sql-injection-detect-postgresql"],
   "question": "Recover the finance analyst's credentials (username:password).",
-  "providers": ["virtualbox", "vmware_desktop", "parallels", "hyperv", "libvirt", "vmware_esxi", "proxmox", "aws"]
+  "providers": ["virtualbox", "vmware_desktop", "parallels", "hyperv", "libvirt", "vmware_esxi", "proxmox", "aws", "azure", "gcp", "digitalocean", "linode", "oci"]
 }
 ```
 
 ## Strict Schema (no extra fields)
-- MUST contain ONLY: `project_name`, `slug`, `title`, `description`, `category`, `difficulty`, `evidence_kind`, `evidence_params`, `dev_evidence`, `capabilities`, `question`, `providers`.
+- MUST contain ONLY: `project_name`, `slug`, `title`, `description`, `category`, `difficulty`, `evidence_kind`, `evidence_params`, `dev_evidence`, `capabilities`, `question`, `providers`, and optionally `resources`.
 - Reject legacy or unknown keys, in particular `flag`, `flag_format`, `flag_type`, `points`, `id`, `services`, `questions`, `estimated_time`.
 
 ## Validation Failures (Block Merge)

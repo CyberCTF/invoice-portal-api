@@ -17,6 +17,16 @@ other targets run that same compose file on a **lab host**: a Debian 12 VM confi
 | Server, ESXi | Their ESXi host | Vagrant + `vagrant-vmware-esxi` | `deploy/vagrant/Vagrantfile` |
 | Server, Proxmox | Their Proxmox host | Terraform `bpg/proxmox` | `deploy/terraform/proxmox/` |
 | Cloud | AWS | Terraform `hashicorp/aws` | `deploy/terraform/aws/` |
+| Cloud | Azure | Terraform `hashicorp/azurerm` | `deploy/terraform/azure/` |
+| Cloud | Google Cloud | Terraform `hashicorp/google` | `deploy/terraform/gcp/` |
+| Cloud | DigitalOcean | Terraform `digitalocean/digitalocean` | `deploy/terraform/digitalocean/` |
+| Cloud | Linode | Terraform `linode/linode` | `deploy/terraform/linode/` |
+| Cloud | Oracle Cloud | Terraform `oracle/oci` | `deploy/terraform/oci/` |
+
+Every Terraform target renders `deploy/cloud-init/user-data.yaml.tftpl` and outputs `ip`,
+`ssh_user` and `ready_file`. On Linode and Oracle Cloud a powered-off instance still bills, so
+auto-stop there relies on the launcher's timed `terraform destroy`, which runs while the app
+is open (and at its next start).
 
 ## Rules
 

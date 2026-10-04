@@ -1,33 +1,22 @@
-# Credentials come from the gcloud CLI (`gcloud auth application-default login`), never from
-# variables. Each lab creates its own project, linked to this billing account.
-variable "billing_account" {
-  type        = string
-  description = "Billing account id (XXXXXX-XXXXXX-XXXXXX) the per-lab project is linked to; required to create resources."
-}
-variable "org_id" {
-  type        = string
-  default     = ""
-  description = "Organization id to create the project under. Empty for a personal / no-org account."
-}
+# Credentials come from ~/.oci/config (DEFAULT profile, API signing key), never from variables.
 variable "region" {
   type        = string
-  default     = "europe-west1"
-  description = "GCP region. The lab host lands in its `-b` zone."
+  default     = "eu-frankfurt-1"
+  description = "OCI region id, e.g. eu-frankfurt-1, us-ashburn-1."
+}
+variable "compartment_ocid" {
+  type        = string
+  description = "Compartment OCID to create the lab in (the tenancy root OCID works)."
 }
 variable "instance_type" {
   type        = string
-  default     = null
-  description = "GCP machine type. Empty = sized from the lab's resources (e2-medium up to 4 GB, e2-standard-2 up to 8 GB, else e2-standard-4)."
-}
-variable "disk_gb" {
-  type        = number
-  default     = null
-  description = "Empty = the lab's resources.disk_gb, else 30"
+  default     = "VM.Standard.E4.Flex"
+  description = "OCI shape (a Flex shape; OCPUs/memory are sized from the lab's resources)."
 }
 variable "auto_stop_hours" {
   type        = number
   default     = 4
-  description = "Power the VM off this many hours after boot (0 = never)"
+  description = "Power the instance off this many hours after boot (0 = never)"
   validation {
     condition     = var.auto_stop_hours >= 0 && var.auto_stop_hours <= 72
     error_message = "auto_stop_hours must be between 0 and 72."
