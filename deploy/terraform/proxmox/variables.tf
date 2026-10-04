@@ -8,8 +8,26 @@ variable "proxmox_username" {
   description = "user@realm, e.g. root@pam"
 }
 variable "proxmox_password" {
-  type      = string
-  sensitive = true
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "With proxmox_username; empty when an API token is used"
+}
+variable "proxmox_api_token" {
+  type        = string
+  default     = ""
+  sensitive   = true
+  description = "user@realm!name=secret; replaces user + password for the API"
+}
+variable "proxmox_ssh_username" {
+  type        = string
+  default     = ""
+  description = "SSH user for the snippet upload; empty = the user part of proxmox_username (root)"
+}
+variable "proxmox_ssh_private_key_file" {
+  type        = string
+  default     = ""
+  description = "Private key for that SSH user (token setups); empty = SSH with proxmox_password"
 }
 variable "proxmox_insecure" {
   type        = bool
