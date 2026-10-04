@@ -49,6 +49,10 @@ AWS: same with `deploy/terraform/aws`, AWS credentials in the environment
 - **Early, actionable errors.** Proxmox checks that the image storage accepts ISO images and
   the snippet storage accepts snippets before uploading anything. AWS builds its own small
   VPC, so it doesn't depend on the account's default VPC.
+- **API tokens on Proxmox.** `proxmox_api_token` (`user@realm!name=secret`) replaces user +
+  password for the API; the snippet upload then uses `proxmox_ssh_private_key_file` (SSH as
+  `proxmox_ssh_username`, default the token's user). A token for root without privilege
+  separation: `pveum user token add root@pam cyberctf --privsep 0`.
 - **Sizing from the lab.** `resources` in `.ctf/metadata.json` (`cpus`, `memory_mb`,
   `disk_gb`) sizes the lab host on every target.
 - **The attack box joins every network** of the lab, not just the default one.
