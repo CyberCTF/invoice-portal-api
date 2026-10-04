@@ -1,0 +1,63 @@
+name: Validate lab
+
+# Checks the lab and its deploy/ layer on every PR and push to main, so a lab can't break
+# the Docker, VM, server or cloud targets without CI noticing.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker compose config
+        run: |
+          if [ -f docker-compose.yml ]; then docker compose -f docker-compose.yml config -q; else echo "no docker-compose.yml (template)"; fi
+
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.5
+          # The wrapper swallows piped stdin, which `terraform console` needs.
+          terraform_wrapper: false
+      - name: fmt
+        run: terraform fmt -check -recursive -diff deploy/terraform
+      - name: validate
+        run: |
+          for m in deploy/terraform/*/; do
+            echo "== $m"
+            terraform -chdir="$m" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="$m" validate
+          done
+      - name: cloud-init renders (with and without SSH key / auto-stop)
+        run: |
+          for args in 'ssh_public_key="ssh-ed25519 AAAA test", auto_stop_minutes=240' 'ssh_public_key="", auto_stop_minutes=0'; do
+            echo "templatefile(\"deploy/cloud-init/user-data.yaml.tftpl\", {lab_repository=\"CyberCTF/x\", lab_commit=\"abc\", ctf_api_url=\"\", ctf_launch_token=\"\", attackbox_image=\"\", $args})" \
+              | timeout 60 terraform console | sed '1d;$d' > /tmp/user-data.yaml
+            python3 -c "import yaml,sys; d=yaml.safe_load(open('/tmp/user-data.yaml')); assert 'runcmd' in d, 'no runcmd'"
+          done
+
+  ansible:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible-core ansible-lint
+      - run: ansible-lint --offline deploy/ansible/site.yml
+
+  vagrant:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Vagrantfile syntax
+        run: ruby -c deploy/vagrant/Vagrantfile

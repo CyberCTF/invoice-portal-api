@@ -1,0 +1,41 @@
+# range.yaml — a multi-VM lab ("range") on a player's Proxmox server. Rename to range.yaml
+# in a lab to make it a range (runtime VM, provider proxmox). A subset of Ludus's range
+# config, so community ranges port over. The launcher resolves each `template` to a Proxmox
+# template on the host by name, allocates a range number, and drives
+# deploy/terraform/proxmox-range. See that module's README and docs/server.md.
+
+ludus:
+  - vm_name: dc01            # unique within the range; VMs are created as ctf<N>-<vm_name>
+    hostname: dc01
+    template: win2022-server-x64   # a Proxmox template name on the host
+    vlan: 10
+    ip_last_octet: 11         # -> 10.<range>.10.11
+    cpus: 2
+    ram_gb: 4
+    os: windows              # linux | windows
+    # domain/role, AD users, roles: provisioning layer (not built yet), kept for forward-compat
+    domain: { fqdn: corp.local, role: primary-dc }
+
+  - vm_name: web01
+    hostname: web01
+    template: debian-12
+    vlan: 10
+    ip_last_octet: 21
+    cpus: 2
+    ram_gb: 2
+    os: linux
+    roles: [web]            # the lab's own Ansible roles under deploy/ansible/roles/
+
+  - vm_name: attacker
+    hostname: attacker
+    template: debian-12      # kali later
+    vlan: 99
+    ip_last_octet: 10
+    cpus: 2
+    ram_gb: 2
+    os: linux
+    attacker: true          # "Open shell" lands here; VLAN 99 may reach the others
+
+# Optional. Defaults: attacker VLAN reaches target VLANs, everything may reach the internet.
+network:
+  attacker_vlan: 99

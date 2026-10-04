@@ -1,0 +1,64 @@
+name: Register lab
+
+# Registers this lab with CyberCTF (CyberBackend publishLab) at the pushed commit, from
+# .ctf/metadata.json. A new lab lands as DRAFT; an existing lab keeps its state.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Register the lab with CyberCTF
+        env:
+          CYBERAUTH_CLIENT_ID: ${{ secrets.CYBERAUTH_CLIENT_ID }}
+          CYBERAUTH_CLIENT_SECRET: ${{ secrets.CYBERAUTH_CLIENT_SECRET }}
+          CYBERAUTH_TOKEN_URL: ${{ vars.CYBERAUTH_TOKEN_URL || 'https://www.cyberauth.co/api/auth/oauth2/token' }}
+          CYBERBACKEND_URL: ${{ vars.CYBERBACKEND_URL || 'https://cyberbackend.com' }}
+          REPOSITORY: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "$CYBERAUTH_CLIENT_ID" ] || [ -z "$CYBERAUTH_CLIENT_SECRET" ]; then
+            echo "CYBERAUTH_CLIENT_ID / CYBERAUTH_CLIENT_SECRET are not set"
+            exit 1
+          fi
+
+          # CPU architectures every pulled image exists for (built services build anywhere).
+          ARCHS='["x86_64","aarch64"]'
+          for IMAGE in $(yq -r '.services[] | select(has("build") | not) | .image // empty' docker-compose.yml | sort -u); do
+            IMAGE_ARCHS=$(docker buildx imagetools inspect --raw "$IMAGE" | jq -c '
+              if .manifests then [.manifests[] | select(.platform.os == "linux") | .platform.architecture] else ["amd64"] end
+              | map(if . == "amd64" then "x86_64" elif . == "arm64" then "aarch64" else . end) | unique')
+            ARCHS=$(jq -cn --argjson a "$ARCHS" --argjson b "$IMAGE_ARCHS" '$a - ($a - $b)')
+          done
+          echo "Architectures: $ARCHS"
+
+          TOKEN=$(curl -fsS -u "$CYBERAUTH_CLIENT_ID:$CYBERAUTH_CLIENT_SECRET" \
+            -d grant_type=client_credentials -d scope=labs:publish -d "resource=$CYBERBACKEND_URL" \
+            "$CYBERAUTH_TOKEN_URL" | jq -r '.access_token // empty')
+          [ -n "$TOKEN" ] || { echo "Could not get a CyberAuth token"; exit 1; }
+          echo "::add-mask::$TOKEN"
+
+          PAYLOAD=$(jq -n --slurpfile lab .ctf/metadata.json --arg repository "$REPOSITORY" --arg commit "$COMMIT" --argjson architectures "$ARCHS" '
+            $lab[0] as $l | {
+              query: "mutation($input: PublishLabInput!) { publishLab(input: $input) { labId state } }",
+              variables: { input: {
+                slug: $l.slug, title: $l.title, description: $l.description,
+                category: ($l.category | ascii_upcase), difficulty: $l.difficulty,
+                evidenceKind: $l.evidence_kind, evidenceParams: ($l.evidence_params | tojson),
+                capabilities: ($l.capabilities // []), question: $l.question,
+                runtime: "DOCKER", repository: $repository, commit: $commit,
+                providers: ($l.providers // []), architectures: $architectures
+              } }
+            }')
+          RESPONSE=$(curl -fsS -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+            -d "$PAYLOAD" "$CYBERBACKEND_URL/graphql")
+          echo "$RESPONSE" | jq .
+          echo "$RESPONSE" | jq -e '.errors == null' > /dev/null
