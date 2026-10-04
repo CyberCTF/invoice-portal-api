@@ -110,7 +110,7 @@ resource "google_compute_instance" "labhost" {
   }
 
   metadata = {
-    ssh-keys  = "cyberctf:${var.ssh_public_key}"
+    ssh-keys = "cyberctf:${var.ssh_public_key}"
     user-data = templatefile("${path.module}/../../cloud-init/user-data.yaml.tftpl", {
       lab_repository    = var.lab_repository
       lab_commit        = var.lab_commit
