@@ -19,6 +19,34 @@ jobs:
         run: |
           if [ -f docker-compose.yml ]; then docker compose -f docker-compose.yml config -q; else echo "no docker-compose.yml (template)"; fi
 
+  # Runs the lab for real (development evidence): it must come up healthy, and its
+  # self-check (compose profile "check", when the lab has one) must pass.
+  lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: lab
+        name: Is there a lab? (the template itself has none)
+        run: echo "present=$([ -f docker-compose.yml ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Start the lab
+        if: steps.lab.outputs.present == 'true'
+        run: docker compose -p lab up -d --build --wait --wait-timeout 300
+      # The check service runs on the lab network, like the attack box.
+      - name: Self-check
+        if: steps.lab.outputs.present == 'true'
+        run: |
+          if docker compose -p lab --profile check config --services | grep -qx check; then
+            docker compose -p lab --profile check run --rm check
+          else
+            echo "::warning::no 'check' service: add one so the launcher and CI can tell the lab is solvable"
+          fi
+      - name: Logs
+        if: failure() && steps.lab.outputs.present == 'true'
+        run: docker compose -p lab logs --no-color
+      - name: Stop
+        if: always() && steps.lab.outputs.present == 'true'
+        run: docker compose -p lab down -v
+
   terraform:
     runs-on: ubuntu-latest
     steps:
@@ -42,7 +70,9 @@ jobs:
           for args in 'ssh_public_key="ssh-ed25519 AAAA test", auto_stop_minutes=240' 'ssh_public_key="", auto_stop_minutes=0'; do
             echo "templatefile(\"deploy/cloud-init/user-data.yaml.tftpl\", {lab_repository=\"CyberCTF/x\", lab_commit=\"abc\", ctf_api_url=\"\", ctf_launch_token=\"\", attackbox_image=\"\", $args})" \
               | timeout 60 terraform console | sed '1d;$d' > /tmp/user-data.yaml
-            python3 -c "import yaml,sys; d=yaml.safe_load(open('/tmp/user-data.yaml')); assert 'runcmd' in d, 'no runcmd'"
+            python3 -c "import yaml,sys; d=yaml.safe_load(open('/tmp/user-data.yaml')); assert 'runcmd' in d, 'no runcmd'; assert any(f['path'] == '/usr/local/sbin/cyberctf-bootstrap' for f in d['write_files']), 'no bootstrap'"
+            python3 -c "import yaml; d=yaml.safe_load(open('/tmp/user-data.yaml')); open('/tmp/bootstrap.sh','w').write(next(f['content'] for f in d['write_files'] if f['path'].endswith('bootstrap')))"
+            sh -n /tmp/bootstrap.sh
           done
 
   ansible:

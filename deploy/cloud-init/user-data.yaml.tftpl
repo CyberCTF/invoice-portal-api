@@ -1,19 +1,69 @@
 #cloud-config
 # Lab host bootstrap for Terraform targets (Proxmox, AWS): fetch the lab at its pinned
 # commit, then run deploy/ansible/site.yml locally. Rendered by templatefile().
+#
+# Progress and outcome go to /var/lib/cyberctf/status ("running: <step>", "ready" or
+# "failed: <step>"), which the launcher reads over SSH; the full log is
+# /var/log/cyberctf-lab.log.
 %{ if ssh_public_key != "" ~}
 # The launcher's key, for "Open shell" (ssh to the distro's default user, then the attack box).
 ssh_authorized_keys:
   - ${ssh_public_key}
 %{ endif ~}
 package_update: true
-packages: [ansible-core, curl, ca-certificates, qemu-guest-agent]
+packages: [curl, ca-certificates, qemu-guest-agent]
 write_files:
   - path: /etc/cyberctf/lab.env
     permissions: "0600"
     content: |
       CTF_API_URL=${ctf_api_url}
       CTF_LAUNCH_TOKEN=${ctf_launch_token}
+      ATTACKBOX_IMAGE=${attackbox_image}
+      LAB_REPOSITORY=${lab_repository}
+      LAB_COMMIT=${lab_commit}
+  - path: /usr/local/sbin/cyberctf-bootstrap
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      # Every step stops the bootstrap on failure and says which one failed.
+      set -u
+      STATUS=/var/lib/cyberctf/status
+      LOG=/var/log/cyberctf-lab.log
+      mkdir -p /var/lib/cyberctf /opt/lab
+      exec >>"$LOG" 2>&1
+
+      step() { echo "== $1"; echo "running: $1" > "$STATUS"; }
+      fail() { echo "!! failed: $1"; echo "failed: $1" > "$STATUS"; exit 1; }
+      # Network steps get five tries with a growing pause (a blip on first boot is common).
+      retry() {
+        n=1
+        until "$@"; do
+          [ "$n" -ge 5 ] && return 1
+          echo "-- retrying in $((n * 10))s"
+          sleep $((n * 10))
+          n=$((n + 1))
+        done
+      }
+
+      . /etc/cyberctf/lab.env
+
+      step "installing Ansible"
+      command -v ansible-playbook >/dev/null \
+        || retry sh -c 'apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ansible-core' \
+        || fail "installing Ansible"
+
+      step "downloading the lab"
+      retry sh -c "rm -rf /opt/lab/* && curl -fsSL https://codeload.github.com/$LAB_REPOSITORY/tar.gz/$LAB_COMMIT | tar -xz --strip-components=1 -C /opt/lab" \
+        || fail "downloading the lab"
+
+      step "starting the lab"
+      ansible-playbook -i localhost, -c local /opt/lab/deploy/ansible/site.yml \
+        -e ctf_api_url="$CTF_API_URL" -e ctf_launch_token="$CTF_LAUNCH_TOKEN" -e attackbox_image="$ATTACKBOX_IMAGE" \
+        || fail "starting the lab"
+
+      echo ready > "$STATUS"
+      touch /var/lib/cyberctf-lab-ready  # older launchers and test scripts wait on this
+      echo "== ready"
 runcmd:
 %{ if auto_stop_minutes > 0 ~}
   # Auto-stop: power off after the limit, counted from boot. On AWS the instance is set
@@ -21,7 +71,4 @@ runcmd:
   - [systemd-run, --on-active=${auto_stop_minutes}m, --timer-property=AccuracySec=1m, systemctl, poweroff]
 %{ endif ~}
   - [systemctl, enable, --now, qemu-guest-agent]
-  - [mkdir, -p, /opt/lab]
-  - [sh, -c, "curl -fsSL https://codeload.github.com/${lab_repository}/tar.gz/${lab_commit} | tar -xz --strip-components=1 -C /opt/lab"]
-  - [sh, -c, ". /etc/cyberctf/lab.env && ansible-playbook -i localhost, -c local /opt/lab/deploy/ansible/site.yml -e ctf_api_url=\"$CTF_API_URL\" -e ctf_launch_token=\"$CTF_LAUNCH_TOKEN\" -e attackbox_image=${attackbox_image} > /var/log/cyberctf-lab.log 2>&1"]
-  - [touch, /var/lib/cyberctf-lab-ready]
+  - [/usr/local/sbin/cyberctf-bootstrap]

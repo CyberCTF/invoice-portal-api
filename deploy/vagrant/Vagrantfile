@@ -5,7 +5,18 @@
 # and passes the evidence claim + server connection as environment variables
 # (contract: cyber-ctf-desktop docs/server.md).
 
+require "json"
+
 LAB_DIR = File.expand_path("../..", __dir__)
+
+# Sizing the lab asks for in .ctf/metadata.json ("resources"), else 2 CPUs / 4096 MB.
+RESOURCES = begin
+  JSON.parse(File.read(File.join(LAB_DIR, ".ctf", "metadata.json"))).fetch("resources", {})
+rescue StandardError
+  {}
+end
+CPUS = Integer(RESOURCES.fetch("cpus", 2))
+MEMORY_MB = Integer(RESOURCES.fetch("memory_mb", 4096))
 
 Vagrant.configure("2") do |config|
   config.vm.define "labhost"
@@ -35,26 +46,26 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.provider "virtualbox" do |v|
-    v.cpus = 2
-    v.memory = 4096
+    v.cpus = CPUS
+    v.memory = MEMORY_MB
   end
   config.vm.provider "vmware_desktop" do |v|
-    v.vmx["numvcpus"] = "2"
-    v.vmx["memsize"] = "4096"
+    v.vmx["numvcpus"] = CPUS.to_s
+    v.vmx["memsize"] = MEMORY_MB.to_s
   end
   config.vm.provider "parallels" do |v|
-    v.cpus = 2
-    v.memory = 4096
+    v.cpus = CPUS
+    v.memory = MEMORY_MB
   end
   config.vm.provider "hyperv" do |v, override|
     override.vm.box = "generic/debian12"
-    v.cpus = 2
-    v.maxmemory = 4096
+    v.cpus = CPUS
+    v.maxmemory = MEMORY_MB
   end
   config.vm.provider "libvirt" do |v, override|
     override.vm.box = "generic/debian12"
-    v.cpus = 2
-    v.memory = 4096
+    v.cpus = CPUS
+    v.memory = MEMORY_MB
   end
 
   # Server: the player's ESXi host (plugin vagrant-vmware-esxi, uses vmware_desktop boxes).
@@ -65,7 +76,7 @@ Vagrant.configure("2") do |config|
     esxi.esxi_password = "env:CYBERCTF_ESXI_PASSWORD"
     esxi.esxi_disk_store = ENV["CYBERCTF_ESXI_DISK_STORE"] if ENV["CYBERCTF_ESXI_DISK_STORE"]
     esxi.esxi_virtual_network = ENV["CYBERCTF_ESXI_VIRTUAL_NETWORK"] if ENV["CYBERCTF_ESXI_VIRTUAL_NETWORK"]
-    esxi.guest_numvcpus = 2
-    esxi.guest_memsize = 4096
+    esxi.guest_numvcpus = CPUS
+    esxi.guest_memsize = MEMORY_MB
   end
 end
