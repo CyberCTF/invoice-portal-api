@@ -29,6 +29,7 @@
     "gcp",
     "digitalocean",
     "linode",
-    "oci"
+    "oci",
+    "hosted"
   ]
 }
