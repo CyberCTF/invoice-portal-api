@@ -1,5 +1,14 @@
-# Credentials come from the gcloud CLI (`gcloud auth application-default login`) and the
-# project in GOOGLE_PROJECT, never from variables.
+# Credentials come from the gcloud CLI (`gcloud auth application-default login`), never from
+# variables. Each lab creates its own project, linked to this billing account.
+variable "billing_account" {
+  type        = string
+  description = "Billing account id (XXXXXX-XXXXXX-XXXXXX) the per-lab project is linked to; required to create resources."
+}
+variable "org_id" {
+  type        = string
+  default     = ""
+  description = "Organization id to create the project under. Empty for a personal / no-org account."
+}
 variable "region" {
   type        = string
   default     = "europe-west1"

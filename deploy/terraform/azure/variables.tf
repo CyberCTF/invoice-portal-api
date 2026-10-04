@@ -13,7 +13,7 @@ variable "instance_type" {
 variable "disk_gb" {
   type        = number
   default     = null
-  description = "Empty = the lab's resources.disk_gb, else 20"
+  description = "Empty = the lab's resources.disk_gb, else 30"
 }
 variable "auto_stop_hours" {
   type        = number

@@ -24,6 +24,11 @@
     "libvirt",
     "vmware_esxi",
     "proxmox",
-    "aws"
+    "aws",
+    "azure",
+    "gcp",
+    "digitalocean",
+    "linode",
+    "oci"
   ]
 }
