@@ -1,0 +1,108 @@
+# UI and Website Structure Critical Errors
+
+UI and website structure critical errors in the points-based enforcement system.
+
+**These errors are ABSOLUTELY FORBIDDEN and result in massive point loss (-500 points each):**
+
+## UI BLACK TAILWIND-SPECIFIC CRITICAL ERRORS
+
+1. **Missing Tailwind CDN or Configuration** (-500 points)
+   - Tailwind CDN script missing from HTML head
+   - Missing Tailwind configuration (CDN config or `tailwind.config.js`)
+   - Tailwind not properly loaded or initialized
+   - **CORRECT**: Include Tailwind CDN script with black/gray-only color configuration in all HTML/PHP pages
+
+2. **Non-Monochrome Colors in UI** (-500 points)
+   - Using chromatic colors (red, blue, green, etc.) instead of black/white/gray only
+   - Inline styles with non-monochrome colors (`style="color: #ff0000"`, `background: blue`, etc.)
+   - CSS gradients (`linear-gradient`, `radial-gradient`) with colors
+   - Color hex codes other than black (#000000), white (#FFFFFF), or grayscale (#111-#fff)
+   - **CORRECT**: Use ONLY black, white, and grayscale (gray-50 to gray-950). No chromatic colors anywhere.
+
+3. **Missing Black Background and White Text** (-500 points)
+   - `<body>` tag missing `bg-black text-white` classes
+   - Background not black (#000000)
+   - Primary text not white (#FFFFFF)
+   - Missing `class="dark"` on `<html>` tag when using Tailwind dark mode
+   - **CORRECT**: All pages must have `<html class="dark">` and `<body class="min-h-screen bg-black text-white">`
+
+4. **Incorrect Tailwind Dark Mode Configuration** (-500 points)
+   - Missing `darkMode: "class"` in Tailwind config
+   - Tailwind config includes chromatic colors in theme
+   - Using color utilities that are not black/white/gray (e.g., `bg-blue-500`, `text-red-600`)
+   - **CORRECT**: Tailwind config must have `darkMode: "class"` and only black/white/gray colors defined
+
+5. **Non-Monochrome Components** (-500 points)
+   - Buttons, inputs, cards using colored styles instead of black/white/gray
+   - Focus rings using colors instead of white/gray
+   - Hover states using colors instead of opacity/grayscale
+   - Links with colored text instead of white
+   - **CORRECT**: All components must use only black/white/gray Tailwind utilities (e.g., `bg-black`, `text-white`, `border-gray-700`, `focus:ring-white`)
+
+6. **Missing UI Black Theme Validation** (-500 points)
+   - Not checking for `linear-gradient` in styles
+   - Not validating that all colors are monochrome
+   - Not verifying Tailwind CDN is present
+   - Not confirming body has `bg-black text-white`
+   - **CORRECT**: Must validate all pages have black background, white text, Tailwind CDN loaded, and no chromatic colors
+
+## WEBSITE-PAGES-ESSENTIALS-SPECIFIC CRITICAL ERRORS
+
+1. **Missing Mandatory Page Structure** (-500 points)
+   - Missing `layout.php` (HTML head, Tailwind CDN, body structure)
+   - Missing `partials/nav.php` (main navigation)
+   - Missing `partials/footer.php`
+   - Missing core pages: `index.php`, `items.php`, `item.php`, `search.php`
+   - Missing support pages: `contact.php`, `about.php`, `privacy.php`, `terms.php`
+   - Missing admin pages: `admin/index.php`, `admin/users.php`
+   - Missing error pages: `errors/404.php`, `errors/500.php`
+   - Missing `health.php` (must return 200 without DB dependency)
+   - **CORRECT**: Create all mandatory pages as specified in WEBSITE-PAGES-ESSENTIALS rule
+
+2. **Missing Routing Configuration** (-500 points)
+   - Missing `.htaccess` file at web root
+   - Missing rewrite rules for routing
+   - Navigation links that don't resolve to real pages
+   - 404 routes not rendering `errors/404.php`
+   - **CORRECT**: Include `.htaccess` with RewriteEngine and proper routing, ensure all nav links work, 404 routes to error page
+
+3. **Missing Shared Layout/Partials** (-500 points)
+   - Pages not using shared `layout.php`
+   - Duplicated `<head>` fragments across pages
+   - Navigation not included via `partials/nav.php`
+   - Footer not included via `partials/footer.php`
+   - **CORRECT**: All pages must use shared layout and partials, no duplicated HTML structure
+
+4. **Incorrect Auth Page Implementation** (-500 points)
+   - Including auth pages when lab doesn't require auth (e.g., pure SQL injection on public endpoints)
+   - Missing auth pages when lab requires auth (e.g., auth bypass, weak login, session bugs)
+   - Registration form with email or extra fields (should only have username and password)
+   - Using external services for registration (should be local/temporary)
+   - Missing `dashboard.php` or `profile.php` when auth is required
+   - **CORRECT**: Include auth pages ONLY when lab scenario requires it, keep registration minimal (username/password only), use local storage
+
+5. **Health Endpoint Database Dependency** (-500 points)
+   - `health.php` using database queries
+   - Health endpoint failing when database is unavailable
+   - Health endpoint not returning 200 quickly
+   - **CORRECT**: Health endpoint must return 200 without any database dependency, must be fast and reliable
+
+6. **Database Errors Exposed to Users** (-500 points)
+   - Raw database error messages shown to users
+   - Fatal exceptions from mysqli queries crashing pages
+   - Missing error handling for database queries
+   - **CORRECT**: All database errors must be logged server-side (error_log), never shown to users, use safe mysqli patterns
+
+7. **Missing Home Page Content** (-500 points)
+   - Home page (`index.php`) is only a lorem-only stub
+   - Missing realistic hero/intro section
+   - Missing 1–2 content sections
+   - Home page doesn't look realistic and clean
+   - **CORRECT**: Home page must have realistic content with hero/intro and 1–2 content sections, not just placeholder text
+
+8. **Navigation Link Mismatch** (-500 points)
+   - Navigation contains links to pages that don't exist
+   - Navigation missing required links (Home, Items, Search, About, Contact)
+   - Auth links (Login/Register/Logout/Dashboard) present when auth not needed
+   - Auth links missing when auth is required
+   - **CORRECT**: Navigation must match page structure, include all required links, show/hide auth links based on lab requirements

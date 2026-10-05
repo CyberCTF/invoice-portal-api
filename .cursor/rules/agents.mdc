@@ -1,0 +1,7 @@
+---
+description: Follow AGENTS.md and the rules/ folder for every task in this lab
+alwaysApply: true
+---
+
+Follow `AGENTS.md` at the repo root and the detailed rules it indexes in `rules/`.
+They are the single source of truth for this lab, for every agent.

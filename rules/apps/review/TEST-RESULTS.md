@@ -1,0 +1,38 @@
+# Test Results Documentation
+
+Required test results artefacts under .ctf/test_results with clear pass/fail summaries.
+
+Create markdown files in `.ctf/test_results/` documenting:
+
+## test_results.md Template
+```markdown
+# Lab Validation Results
+
+## Test Summary
+- **Date**: [Current Date]
+- **Lab**: [Lab Name]
+- **Status**: [PASS/FAIL]
+- **Duration**: [Test Duration]
+
+## Test Results
+### Environment Tests
+- [ ] Docker containers: PASS/FAIL
+- [ ] Network connectivity: PASS/FAIL
+- [ ] Database access: PASS/FAIL
+
+### Exploitation Tests
+- [ ] Vulnerability discovery: PASS/FAIL
+- [ ] Exploitation execution: PASS/FAIL
+- [ ] Evidence extraction: PASS/FAIL
+
+### User Experience Tests
+- [ ] Documentation clarity: PASS/FAIL
+- [ ] Instruction accuracy: PASS/FAIL
+- [ ] Error handling: PASS/FAIL
+
+## Issues Found
+[List any issues discovered during testing]
+
+## Recommendations
+[Suggestions for improvement]
+```
