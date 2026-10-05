@@ -1,7 +1,8 @@
 name: Validate lab
 
-# Checks the lab and its deploy/ layer on every PR and push to main, so a lab can't break
-# the Docker, VM, server or cloud targets without CI noticing.
+# The lab is its isoloom.yml (https://www.isoloom.com): on every PR and push to main, the spec
+# must be valid, the generated files under .isoloom/ current, the Docker edition must come up
+# and pass its checks, and every generated Vagrant and Terraform output must be well formed.
 on:
   pull_request:
   push:
@@ -10,42 +11,42 @@ on:
 permissions:
   contents: read
 
+env:
+  # The Isoloom version the lab is generated with (a commit of github.com/isoloom/isoloom).
+  ISOLOOM_REV: f64005c55f46a9bc3b3f085e7603cb26740a2104
+
 jobs:
-  compose:
+  isoloom:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: docker compose config
-        run: |
-          if [ -f docker-compose.yml ]; then docker compose -f docker-compose.yml config -q; else echo "no docker-compose.yml (template)"; fi
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/isoloom
+          key: isoloom-${{ env.ISOLOOM_REV }}
+      - name: Install isoloom
+        run: command -v isoloom || cargo install --locked --git https://github.com/isoloom/isoloom --rev "$ISOLOOM_REV" isoloom
+      - run: isoloom validate
+      - name: Generated files are current (run `isoloom generate` and commit)
+        run: isoloom check
 
-  # Runs the lab for real (development evidence): it must come up healthy, and its
-  # self-check (compose profile "check", when the lab has one) must pass.
+  # Runs the lab for real (development evidence): it must come up healthy and pass its checks.
   lab:
     runs-on: ubuntu-latest
+    env:
+      COMPOSE: docker compose -p lab -f .isoloom/docker/compose.yml
     steps:
       - uses: actions/checkout@v4
-      - id: lab
-        name: Is there a lab? (the template itself has none)
-        run: echo "present=$([ -f docker-compose.yml ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - name: Start the lab
-        if: steps.lab.outputs.present == 'true'
-        run: docker compose -p lab up -d --build --wait --wait-timeout 300
-      # The check service runs on the lab network, like the attack box.
-      - name: Self-check
-        if: steps.lab.outputs.present == 'true'
-        run: |
-          if docker compose -p lab --profile check config --services | grep -qx check; then
-            docker compose -p lab --profile check run --rm check
-          else
-            echo "::warning::no 'check' service: add one so the launcher and CI can tell the lab is solvable"
-          fi
+        run: $COMPOSE up -d --build --wait --wait-timeout 300
+      - name: Checks (from the player's side)
+        run: $COMPOSE --profile check run --rm isoloom-check
       - name: Logs
-        if: failure() && steps.lab.outputs.present == 'true'
-        run: docker compose -p lab logs --no-color
+        if: failure()
+        run: $COMPOSE logs --no-color
       - name: Stop
-        if: always() && steps.lab.outputs.present == 'true'
-        run: docker compose -p lab down -v
+        if: always()
+        run: $COMPOSE down -v
 
   terraform:
     runs-on: ubuntu-latest
@@ -54,40 +55,18 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.16.5
-          # The wrapper swallows piped stdin, which `terraform console` needs.
-          terraform_wrapper: false
-      - name: fmt
-        run: terraform fmt -check -recursive -diff deploy/terraform
-      - name: validate
+      - name: validate (Proxmox, every cloud)
         run: |
-          for m in deploy/terraform/*/; do
+          for m in .isoloom/docker-vm/proxmox .isoloom/proxmox .isoloom/cloud-docker/*; do
+            [ -f "$m/main.tf" ] || continue
             echo "== $m"
-            terraform -chdir="$m" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="$m" init -backend=false -input=false >/dev/null
             terraform -chdir="$m" validate
           done
-      - name: cloud-init renders (with and without SSH key / auto-stop)
-        run: |
-          for args in 'ssh_public_key="ssh-ed25519 AAAA test", auto_stop_minutes=240' 'ssh_public_key="", auto_stop_minutes=0'; do
-            echo "templatefile(\"deploy/cloud-init/user-data.yaml.tftpl\", {lab_repository=\"CyberCTF/x\", lab_commit=\"abc\", ctf_api_url=\"\", ctf_launch_token=\"\", attackbox_image=\"\", $args})" \
-              | timeout 60 terraform console | sed '1d;$d' > /tmp/user-data.yaml
-            python3 -c "import yaml,sys; d=yaml.safe_load(open('/tmp/user-data.yaml')); assert 'runcmd' in d, 'no runcmd'; assert any(f['path'] == '/usr/local/sbin/cyberctf-bootstrap' for f in d['write_files']), 'no bootstrap'"
-            python3 -c "import yaml; d=yaml.safe_load(open('/tmp/user-data.yaml')); open('/tmp/bootstrap.sh','w').write(next(f['content'] for f in d['write_files'] if f['path'].endswith('bootstrap')))"
-            sh -n /tmp/bootstrap.sh
-          done
-
-  ansible:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install ansible-core ansible-lint
-      - run: ansible-lint --offline deploy/ansible/site.yml
 
   vagrant:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Vagrantfile syntax
-        run: ruby -c deploy/vagrant/Vagrantfile
+      - name: Vagrantfiles parse
+        run: for f in .isoloom/*/Vagrantfile; do ruby -c "$f"; done
