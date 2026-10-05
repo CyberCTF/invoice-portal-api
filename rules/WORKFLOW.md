@@ -1,0 +1,62 @@
+# Lab Production Workflow
+
+The lab production workflow with explicit split: Review (assessment-only) followed by Correction (apply fixes).
+
+The lab production workflow is in 5 phases : 
+1. Context creation
+2. Lab Generation
+3. Review (assessment-only)
+4. Correction (optional)
+5. Metadata generation
+
+## Phase 1 - Context creation
+
+Purpose: collect and validate the library page (source of truth) and any author-provided overrides before generation.
+
+**Rules:** `rules/context/`
+
+**Input:** `.ctf/LIBRARY_PAGE.md`
+
+**Output:** `.ctf/SCENARIO.md` + `.ctf/EVIDENCE.md`
+
+## Phase 2 - Lab Generation
+
+Purpose: Develop and structure a complete lab using the rules as guidelines.
+
+**Rules:** `rules/apps/development/` + `rules/apps/run/`
+
+**Input:** `.ctf/LIBRARY_PAGE.md` + `.ctf/SCENARIO.md` + `.ctf/EVIDENCE.md`
+
+**Output:** `isoloom.yml` + `build/` + `provision/` + `tests/` + the generated `.isoloom/` (run `isoloom generate`), + `.ctf/LAB_CREATION_LOG.md`
+
+All generated files must follow the PHILOSOPHY constraints.
+
+## Phase 3 - Review (assessment-only)
+
+Purpose: automated QA and human review step to assess safety and quality before corrections.
+
+**Rules:** `rules/apps/review/`
+
+**Input:** `isoloom.yml` + `build/` + `provision/` + `tests/` + `.isoloom/` + `.ctf/LAB_CREATION_LOG.md`
+
+**Output:** `.ctf/REVIEW.md` (findings and recommendations) or `.ctf/GOOD.md` an empty file if the lab is working and nothing need to be change
+
+## Phase 4 - Correction (optional)
+
+Purpose: fix the lab and its associated tests following the findings written in `.ctf/REVIEW.md`.
+
+**Rules:** `rules/apps/correction/`
+
+**Input:** `isoloom.yml` + `build/` + `provision/` + `tests/` + `.ctf/REVIEW.md`
+
+**Output:** `isoloom.yml` + `build/` + `provision/` + `tests/` (corrected, `.isoloom/` regenerated), append notes to `.ctf/CORRECTION.md`; when the lab is working, produce a `.ctf/GOOD.md` file
+
+## Phase 5: Metadata generation
+
+Purpose: produce minimal, platform-ready metadata and hints to be used by the Cyber CTF platform and the CI/CD.
+
+**Rules:** `rules/deploy/metadata/`
+
+**Input:** `isoloom.yml` + `build/` + `tests/` + `.ctf/`
+
+**Output:** `.ctf/metadata.json`

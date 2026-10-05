@@ -1,0 +1,26 @@
+# Apache .htaccess Routing (Index Fallback)
+
+Add minimal .htaccess to route all non-file/non-dir requests to index.php; enable clean routing.
+
+## Purpose
+- Ensure labs do not 404 on valid application routes by routing non-file/non-directory requests to `index.php`.
+- Keep rewrite rules minimal and compatible across labs.
+
+## Required .htaccess (place at web root, typically `/var/www/html` or `/build/web/src`)
+
+```apache
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+```
+
+## Notes
+- Requires `AllowOverride All` in the matching `<Directory>` block. See server config rules.
+- Do not add verbose, app-specific rewrites unless strictly needed by the scenario.
+- This avoids TEST → ERROR 404 by enabling front-controller routing.
+
+## References
+- Library page used for these labs: [MySQL Blind Using A Conditional Statement](https://github.com/Cyber-Courses/Cyber-Library/blob/review/injection/offensive/software/applications/server_applications/web/injection/sql_injection/mysql/mysql_blind/mysql_blind_using_a_conditional_statement.mdx)
+- Related server setup guidance and Dockerfile syntax cautions are covered in existing rules (e.g., `SERVERS.md` and `DOCKERFILE-SYNTAX.md`) previously added [[memory:10495739]].
+

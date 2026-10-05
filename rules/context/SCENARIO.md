@@ -1,0 +1,43 @@
+# Scenario Authoring Rules (Generation)
+
+Authoring rules for transforming the cyberlibrary vulnerability note into a realistic company scenario.
+
+## Core Principles
+- Every scenario MUST originate from the library page located in `.ctf/LIBRARY_PAGE.md`, which mirrors an article from https://www.cyberlibrary.fr/.
+- Treat the library page as the technical source of truth: extract the featured vulnerability, affected component, and exploit consequences.
+- Reverse the path from the technical flaw to the business stakes: identify who would own the affected system, what service relies on it, and the business process that would break if the flaw were abused.
+
+## Required Sections (in this exact order)
+1. **Library Insight**
+   - 2–3 sentences summarizing the key vulnerability facts from the library page (component, weakness, typical impact).
+   - Cite only information that is explicitly stated or logically implied by the library page.
+
+2. **Business Persona**
+   - Name ONE fictional organization that could realistically operate the vulnerable service.
+   - 2–4 sentences describing the sector, the digital product in scope, and why this system matters for revenue, compliance, or trust.
+   - **IMPORTANT**: Keep this section very concise (1-2 sentences, maximum 320 characters total) as the first paragraph will be used as the lab description in metadata.json. Avoid repetition and keep it business-focused.
+
+3. **Technical Surface**
+   - 3–5 bullets detailing the relevant stack and deployment cues (framework/runtime, hosting style, data stores, integrations) that make the vulnerability plausible in this company.
+   - Include at least one note on how legitimate users interact with the affected component (e.g., customer portal upload, partner API, mobile sync).
+
+4. **Business Risk Chain**
+   - 3–4 bullets mapping the exploit to concrete business outcomes (financial fraud, service shutdown, regulatory breach, reputation loss).
+   - Each bullet should follow the structure `Exploit step → immediate technical effect → business consequence`.
+
+5. **Impact Snapshot**
+   - 1 concise paragraph (2–3 sentences) describing the "day-after" story: who notices, which KPI or obligation fails, and why executives care.
+
+## Content & Style Guardrails
+- Length limit: ≤ 275 words total.
+- No exploit instructions, payloads, or remediation guidance.
+- Do not reveal the evidence value or its exact location.
+- Use professional, narrative tone with business vocabulary over hacker slang.
+- People names (if needed) must come from the random names list; emails end with `@cyberctf.fr`; avoid real-world company names and domains.
+- Keep the scenario self-contained; do not reference other labs or fictional universes.
+- **The first paragraph (Business Persona) must be ≤ 320 characters as it is extracted for metadata.json description field. This ensures the description remains concise and focused.**
+
+## Acceptance Checklist
+- Vulnerability, business risk, and company profile are all mutually consistent and grounded in the library page.
+- The described risk clearly motivates why obtaining the evidence matters to stakeholders.
+- Output follows section order and formatting exactly as listed above.

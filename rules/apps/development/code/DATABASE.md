@@ -1,0 +1,168 @@
+# Database User Creation
+
+Enforce DB init order and correct MySQL privileges: create user before GRANT, separate global vs DB grants.
+
+## Mandatory: Create Database Users in Init Scripts
+
+- **ALWAYS create users** before granting privileges
+- **Use `IF NOT EXISTS`** to prevent errors on re-runs
+- **Define users in numbered init scripts** (01-create-database.sql, etc.)
+
+### INCORRECT - User Not Created
+```sql
+--  User 'app_user' not created, GRANT will fail
+GRANT SELECT, INSERT ON project_management.* TO 'app_user'@'%';
+```
+
+### CORRECT - User Created Then Granted Privileges
+```sql
+--  Create database first
+CREATE DATABASE IF NOT EXISTS project_management 
+CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+--  Create user BEFORE granting privileges
+CREATE USER IF NOT EXISTS 'app_user'@'%' IDENTIFIED BY 'app_password';
+
+--  Then grant privileges
+GRANT SELECT, INSERT, UPDATE, DELETE ON project_management.* TO 'app_user'@'%';
+
+--  Flush privileges to apply changes
+FLUSH PRIVILEGES;
+```
+
+## Database Initialization Order
+
+1. **01-create-database.sql**: Create database
+2. **02-create-users.sql**: Create users (or combine with step 1)
+3. **03-grant-privileges.sql**: Grant privileges
+4. **04-init-data.sql**: Initialize data
+5. **Always use `IF NOT EXISTS`** to prevent errors on re-runs
+
+## Database Initialization Scripts
+
+- **Script Order**: Database creation must come before user creation and privilege grants
+- **Common Error**: "Incorrect usage of DB GRANT and GLOBAL PRIVILEGES"
+- **Solution**: Separate database-specific and global privileges into different GRANT statements
+- **Script Naming**: Use numbered prefixes (01-, 02-, 03-) to ensure execution order
+- **Error Handling**: Include `IF NOT EXISTS` clauses to prevent conflicts on re-runs
+
+## Database Connection Errors
+
+- **Common Error**: "Database connection failed" in applications
+- **Root Causes**:
+  - User not created properly or missing privileges
+  - Database not initialized with required tables
+  - Incorrect connection parameters (host, port, credentials)
+  - Privilege separation issues in MySQL
+- **Prevention**:
+  - Always test database connection after container startup
+  - Use proper privilege separation (database vs global privileges)
+  - Include `IF NOT EXISTS` in user creation scripts
+  - Verify database initialization order in scripts
+
+## Root Password Enforcement
+
+- **Never run MySQL with an empty root password.** The database Dockerfile must define `MYSQL_ROOT_PASSWORD` in `ENV` (quoted) so the server starts with authentication enabled.
+- Readiness loops and admin scripts must pass the root password explicitly: `mysqladmin ping -uroot -p"$MYSQL_ROOT_PASSWORD" -h 127.0.0.1 -P 3207`.
+- PHP and maintenance code must **not** attempt root logins without a password; doing so triggers runtime warnings like `Access denied for user 'root'@'127.0.0.1' (using password: NO)` and prevents Apache from finishing startup.
+- When root access is unnecessary, create dedicated service users and avoid ever relying on anonymous or passwordless accounts.
+
+## MySQL 8 Specific Configuration
+
+- MySQL 8: standardize authentication plugin or use compatible client drivers.
+- Init DB: scripts in `/docker-entrypoint-initdb.d` with correct file types/permissions.
+- Explicit charset/collation (e.g., `utf8mb4` / `utf8mb4_unicode_ci`).
+- MySQL privileges: Use `CREATE ROUTINE` instead of `CREATE FUNCTION` for database-specific grants.
+  - WRONG: `GRANT CREATE FUNCTION ON database.* TO 'user'@'%';`
+  - CORRECT: `GRANT CREATE ROUTINE ON database.* TO 'user'@'%';`
+- **MySQL Privilege Separation**: Never mix database and global privileges in single GRANT statement.
+  - WRONG: `GRANT SELECT, FILE ON database.* TO 'user'@'%';`
+  - CORRECT: `GRANT SELECT ON database.* TO 'user'@'%'; GRANT FILE ON *.* TO 'user'@'%';`
+- **User Creation**: Always use `IF NOT EXISTS` for user creation to avoid conflicts.
+  - CORRECT: `CREATE USER IF NOT EXISTS 'user'@'%' IDENTIFIED BY 'password';`
+
+## MySQL 5.6 Compatibility Notes
+
+- `CREATE USER IF NOT EXISTS` is NOT supported prior to MySQL 5.7.3.
+- If using MySQL 5.6 or older, prefer creating the user via the image's `MYSQL_USER`/`MYSQL_PASSWORD` (Dockerfile `ENV`) and perform only GRANT statements in init scripts.
+- Avoid duplicate user creation errors: remove `CREATE USER` from SQL init files when the user is provisioned by the image ENV.
+
+### Example (MySQL 5.6)
+```sql
+-- 02-create-users.sql (skip CREATE USER if provided by the image ENV)
+-- User is created by environment variables: MYSQL_USER / MYSQL_PASSWORD
+-- Only grant database-specific privileges here
+GRANT SELECT, INSERT, UPDATE, DELETE ON database_name.* TO 'app_user'@'%';
+FLUSH PRIVILEGES;
+```
+
+## utf8mb4 and Index Length Limits (MySQL 5.6)
+
+- MySQL 5.6 with `utf8mb4` has a 767-byte index prefix limit.
+- A `UNIQUE` index on `VARCHAR(255)` (4 bytes/char) exceeds the limit: 255 × 4 = 1020 bytes.
+- Use a prefix index of 191 characters to remain under 767 bytes (191 × 4 = 764 bytes).
+
+### Example
+```sql
+-- Instead of: UNIQUE KEY (username)
+-- Use prefix index:
+UNIQUE KEY idx_username (username(191));
+```
+
+## MySQL CREATE FUNCTION Error
+
+- **Common Error**: MySQL syntax error when using `CREATE FUNCTION` privilege on database-specific grants
+- **Error Message**: `ERROR 1064 (42000): You have an error in your SQL syntax`
+- **Root Cause**: MySQL does not accept `CREATE FUNCTION` on database-specific grants
+- **Solution**: Use `CREATE ROUTINE` instead
+
+### WRONG
+```sql
+-- Will cause syntax error
+GRANT CREATE FUNCTION ON database_name.* TO 'user'@'%';
+```
+
+### CORRECT
+```sql
+-- Use CREATE ROUTINE for database-level privileges
+GRANT CREATE ROUTINE ON database_name.* TO 'user'@'%';
+
+-- Or omit the privilege entirely if not needed
+GRANT SELECT, INSERT, UPDATE, DELETE ON database_name.* TO 'user'@'%';
+```
+
+## MySQL Privilege Separation Error
+
+- **Common Error**: Mixing database-specific and global privileges in a single GRANT statement
+- **Error Message**: `ERROR 1221 (HY000): Incorrect usage of DB GRANT and GLOBAL PRIVILEGES`
+- **Root Cause**: MySQL does not accept mixing database-level and global-level privileges in the same GRANT statement
+- **Solution**: Separate database-specific and global privileges into different GRANT statements
+
+### WRONG - Mixing Privileges
+```sql
+-- Will cause ERROR 1221: Cannot mix database and global privileges
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, FILE ON database_name.* TO 'user'@'%';
+--                                                    ^^^^ FILE is a global privilege
+```
+
+### CORRECT - Separated Privileges
+```sql
+-- Database-specific privileges (separate statement)
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP ON database_name.* TO 'user'@'%';
+GRANT CREATE ROUTINE ON database_name.* TO 'user'@'%';
+
+-- Global privileges (separate statement on *.*)
+GRANT FILE ON *.* TO 'user'@'%';
+```
+
+### MySQL Privilege Examples
+```sql
+-- Database-specific privileges
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP ON database.* TO 'user'@'%';
+
+-- Global privileges (separate statement)
+GRANT FILE ON *.* TO 'user'@'%';
+
+-- User creation with error handling
+CREATE USER IF NOT EXISTS 'user'@'%' IDENTIFIED BY 'password';
+```
