@@ -34,7 +34,7 @@ jobs:
 
           # CPU architectures every pulled image exists for (built services build anywhere).
           ARCHS='["x86_64","aarch64"]'
-          for IMAGE in $(yq -r '.services[] | select(has("build") | not) | .image // empty' docker-compose.yml | sort -u); do
+          for IMAGE in $(yq -r '.services[] | select(has("build") | not) | .image // empty' .isoloom/docker/compose.yml | sort -u); do
             IMAGE_ARCHS=$(docker buildx imagetools inspect --raw "$IMAGE" | jq -c '
               if .manifests then [.manifests[] | select(.platform.os == "linux") | .platform.architecture] else ["amd64"] end
               | map(if . == "amd64" then "x86_64" elif . == "arm64" then "aarch64" else . end) | unique')

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://www.isoloom.com/schema/v1.json
+# Supplier portal API: Globex Finance's read-only supplier API. One description, run on every
+# target: containers (Docker), or one VM per machine (Vagrant, ESXi, Proxmox), or Docker on one
+# VM (this machine, a server, any cloud). See https://www.isoloom.com.
+version: 1
+name: invoice-portal-api
+
+networks:
+  lab: { cidr: 10.20.0.0/24 }
+
+# Given by the CyberCTF launcher: the database claims this player's evidence with them.
+# Without them (local runs, CI) the lab uses its development evidence.
+inputs: [CTF_API_URL, CTF_LAUNCH_TOKEN]
+
+machines:
+  database:
+    networks: { lab: 32 }
+    services: [{ port: 3207, name: mysql }]
+    inputs: [CTF_API_URL, CTF_LAUNCH_TOKEN]
+    # The claimed evidence: the launch token is single-use, so it must survive restarts.
+    volumes: { evidence: /var/lib/ctf }
+    resources: { cpus: 1, memory_mb: 1024 }
+    docker:
+      build: build/database
+      init: [build/database/evidence.sh]
+    vm:
+      os: debian-12
+      provision: [provision/database.sh]
+
+  web:
+    networks: { lab: 31 }
+    services: [{ port: 3206, name: portal, http: true, publish: 3206 }]
+    depends_on: [database]
+    resources: { cpus: 1, memory_mb: 1024 }
+    docker:
+      build: build/web
+    vm:
+      os: debian-12
+      provision: [provision/web.sh]
+
+# The lab is still solvable: run from the player's side.
+checks:
+  - build/check/check.sh

@@ -11,8 +11,11 @@ case "$AMOUNT" in
   ''|*[!0-9.]*) echo "place-evidence: unexpected evidence format" >&2; exit 1 ;;
 esac
 
+i=0
 until mysql -h"${DB_HOST:-database}" -P"${DB_PORT:-3207}" -uroot \
   -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1" >/dev/null 2>&1; do
+  i=$((i + 1))
+  [ "$i" -lt 90 ] || { echo "place-evidence: the database never answered" >&2; exit 1; }
   sleep 2
 done
 

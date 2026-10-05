@@ -5,7 +5,7 @@ import time
 import pytest
 import requests
 
-COMPOSE = ["docker", "compose", "-f", "build/docker-compose.dev.yml"]
+COMPOSE = ["docker", "compose", "-f", ".isoloom/docker/compose.yml"]
 BASE = os.environ.get("APP_BASE_URL", "http://localhost:3206")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -13,7 +13,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 @pytest.fixture(scope="session", autouse=True)
 def stack():
     """Bring the lab up (dev evidence), wait for health, tear it down after."""
-    subprocess.run(COMPOSE + ["up", "-d", "--build"], cwd=ROOT, check=True)
+    subprocess.run(COMPOSE + ["up", "-d", "--build", "--wait", "--wait-timeout", "300"], cwd=ROOT, check=True)
     try:
         deadline = time.time() + 180
         while time.time() < deadline:

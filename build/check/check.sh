@@ -14,7 +14,7 @@ if [ "$code" != "401" ]; then
 fi
 
 # The intended path: an authenticated lookup returns the target invoice with an amount.
-if ! body=$(curl -fsS --max-time 10 -H "X-Portal-Key: ${PORTAL_API_KEY}" "$API"); then
+if ! body=$(curl -fsS --max-time 10 -H "X-Portal-Key: ${PORTAL_API_KEY:-vendor-demo-key}" "$API"); then
   echo "✗ the authenticated lookup of INV-20507 failed"
   exit 1
 fi
