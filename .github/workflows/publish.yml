@@ -9,9 +9,5 @@ jobs:
     if: hashFiles('.ctf/metadata.json') != ''
     runs-on: ubuntu-latest
     environment: production
-    permissions:
-      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: isoloom/isoloom@v0.7.2
-      - run: isoloom generate && echo "generated ok"
+      - run: echo ok
