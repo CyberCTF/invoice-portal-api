@@ -8,6 +8,11 @@ name: invoice-portal-api
 networks:
   lab: { cidr: 10.20.0.0/24 }
 
+# What both machines share (a machine's own value wins).
+common:
+  vm: { os: debian-12 }
+  resources: { cpus: 1, memory_mb: 1024 }
+
 # Given by the CyberCTF launcher: the database claims this player's evidence with them.
 # Without them (local runs, CI) the lab uses its development evidence.
 inputs: [CTF_API_URL, CTF_LAUNCH_TOKEN]
@@ -19,25 +24,30 @@ machines:
     inputs: [CTF_API_URL, CTF_LAUNCH_TOKEN]
     # The claimed evidence: the launch token is single-use, so it must survive restarts.
     volumes: { evidence: /var/lib/ctf }
-    resources: { cpus: 1, memory_mb: 1024 }
     docker:
       build: build/database
       init: [build/database/evidence.sh]
     vm:
-      os: debian-12
       provision: [provision/database.sh]
 
   web:
     networks: { lab: 31 }
     services: [{ port: 80, name: portal, http: true, publish: 80 }]
     depends_on: [database]
-    resources: { cpus: 1, memory_mb: 1024 }
     docker:
       build: build/web
     vm:
-      os: debian-12
       provision: [provision/web.sh]
 
-# The lab is still solvable: run from the player's side.
+# From the player's side, on every target (`isoloom test`): the lesson, declared; the intended
+# path, as a script (it needs the documented key). Reachability checks are derived from the spec.
 checks:
+  - name: the API refuses a request without its key
+    http: http://web/api/invoices/INV-20507
+    expect: 401
   - build/check/check.sh
+
+# Shown when the lab is up.
+message: |
+  Globex Finance's supplier portal API answers at http://localhost:{{ machines.web.services.0.publish }}/.
+  Start with the documentation it publishes; the invoice you are after is INV-20507.
