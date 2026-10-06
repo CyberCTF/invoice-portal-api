@@ -6,7 +6,18 @@ on:
 
 jobs:
   register:
+    if: hashFiles('.ctf/metadata.json') != ''
     runs-on: ubuntu-latest
     environment: production
+    permissions:
+      contents: read
     steps:
-      - run: echo "reached the gate"
+      - uses: actions/checkout@v4
+      - uses: isoloom/isoloom@v0.7.2
+      - run: isoloom generate
+      - uses: CyberCTF/publish-lab-action@v1.0.1
+        with:
+          client_id: ${{ secrets.CYBERAUTH_CLIENT_ID }}
+          client_secret: ${{ secrets.CYBERAUTH_CLIENT_SECRET }}
+          backend_url: ${{ secrets.CYBERBACKEND_URL }}
+          token_url: ${{ secrets.CYBERAUTH_TOKEN_URL }}
