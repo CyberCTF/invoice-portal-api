@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # The Isoloom release the lab is generated with.
-      - uses: isoloom/isoloom@v0.7.2
+      - uses: isoloom/isoloom@v0.8.0
       - run: isoloom validate
       - name: Generated files are current (run `isoloom generate` and commit)
         run: isoloom check
@@ -26,19 +26,20 @@ jobs:
   lab:
     runs-on: ubuntu-latest
     env:
-      COMPOSE: docker compose -p lab -f .isoloom/docker/compose.yml
+      COMPOSE: docker compose -f .isoloom/docker/compose.yml
     steps:
       - uses: actions/checkout@v4
+      - uses: isoloom/isoloom@v0.8.0
       - name: Start the lab
         run: $COMPOSE up -d --build --wait --wait-timeout 300
-      - name: Checks (from the player's side)
-        run: $COMPOSE --profile check run --rm isoloom-check
+      - name: Checks (the lab's, and the ones derived from the spec, from every machine)
+        run: isoloom test docker .
       - name: Logs
         if: failure()
-        run: $COMPOSE logs --no-color
+        run: $COMPOSE --profile check logs --no-color
       - name: Stop
         if: always()
-        run: $COMPOSE down -v
+        run: $COMPOSE --profile check down -v
 
   terraform:
     runs-on: ubuntu-latest
