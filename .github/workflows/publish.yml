@@ -26,3 +26,5 @@ jobs:
         with:
           client_id: ${{ secrets.CYBERAUTH_CLIENT_ID }}
           client_secret: ${{ secrets.CYBERAUTH_CLIENT_SECRET }}
+          backend_url: ${{ secrets.CYBERBACKEND_URL }}
+          token_url: ${{ secrets.CYBERAUTH_TOKEN_URL }}
