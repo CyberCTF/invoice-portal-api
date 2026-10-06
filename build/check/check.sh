@@ -4,7 +4,7 @@
 # Exit 0 = solvable. Never prints the invoice amount: that is the answer.
 set -eu
 
-API="http://web:3206/api/invoices/INV-20507"
+API="http://web/api/invoices/INV-20507"
 
 # The lesson: the API refuses a request without the documented key.
 code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$API" || true)

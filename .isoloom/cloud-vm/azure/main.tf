@@ -247,13 +247,13 @@ resource "azurerm_network_security_group" "web" {
     destination_address_prefix = "*"
   }
   security_rule {
-    name                       = "published-3206"
+    name                       = "published-80"
     priority                   = 120
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
     source_port_range          = "*"
-    destination_port_range     = "3206"
+    destination_port_range     = "80"
     source_address_prefix      = var.allowed_cidr
     destination_address_prefix = "*"
   }
@@ -392,6 +392,6 @@ output "checks" {
 
 output "published" {
   value = {
-    "web/portal" = "${azurerm_public_ip.web.ip_address}:3206"
+    "web/portal" = "${azurerm_public_ip.web.ip_address}:80"
   }
 }

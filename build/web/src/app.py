@@ -78,4 +78,4 @@ def healthz():
 
 
 if __name__ == "__main__":  # pragma: no cover
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "3206")))
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "80")))

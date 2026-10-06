@@ -231,7 +231,7 @@ resource "google_compute_firewall" "web_published" {
   target_tags   = ["${local.name}-web"]
   allow {
     protocol = "tcp"
-    ports    = ["3206"]
+    ports    = ["80"]
   }
 }
 
@@ -330,6 +330,6 @@ output "checks" {
 
 output "published" {
   value = {
-    "web/portal" = "${google_compute_instance.web.network_interface[0].access_config[0].nat_ip}:3206"
+    "web/portal" = "${google_compute_instance.web.network_interface[0].access_config[0].nat_ip}:80"
   }
 }

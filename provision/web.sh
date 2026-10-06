@@ -1,5 +1,5 @@
 #!/bin/sh
-# Web VM: the supplier portal API (Flask + gunicorn) on 3206, as a systemd service.
+# Web VM: the supplier portal API (Flask + gunicorn) on 80, as a systemd service.
 # An Isoloom VM step: runs as root from the project (/opt/isoloom); safe to re-run.
 set -eu
 
@@ -24,6 +24,8 @@ Wants=network-online.target
 
 [Service]
 User=portal
+# Port 80 is privileged; grant just the bind capability instead of running as root.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 WorkingDirectory=/opt/portal/app
 Environment=DB_HOST=database
 Environment=DB_PORT=3207
@@ -31,7 +33,7 @@ Environment=DB_USER=portal
 Environment=DB_PASSWORD=portal-pass
 Environment=DB_NAME=portal
 Environment=PORTAL_API_KEY=vendor-demo-key
-ExecStart=/opt/portal/venv/bin/gunicorn --bind 0.0.0.0:3206 --workers 2 --timeout 60 app:app
+ExecStart=/opt/portal/venv/bin/gunicorn --bind 0.0.0.0:80 --workers 2 --timeout 60 app:app
 Restart=on-failure
 
 [Install]
@@ -43,9 +45,9 @@ systemctl restart portal
 
 # Ready when the API answers and reaches the database (healthz checks both).
 i=0
-until curl -fsS --max-time 3 http://127.0.0.1:3206/healthz >/dev/null 2>&1; do
+until curl -fsS --max-time 3 http://127.0.0.1:80/healthz >/dev/null 2>&1; do
   i=$((i + 1))
   [ "$i" -lt 60 ] || { echo "web: the API never became healthy" >&2; journalctl -u portal --no-pager -n 30 >&2; exit 1; }
   sleep 2
 done
-echo "web: portal API ready on port 3206"
+echo "web: portal API ready on port 80"

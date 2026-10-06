@@ -3,7 +3,7 @@ import os
 
 import requests
 
-BASE = os.environ.get("APP_BASE_URL", "http://localhost:3206")
+BASE = os.environ.get("APP_BASE_URL", "http://localhost")
 KEY = "vendor-demo-key"
 DEV_EVIDENCE = "15600.00"
 TARGET = "INV-20507"

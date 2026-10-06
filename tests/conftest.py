@@ -6,7 +6,7 @@ import pytest
 import requests
 
 COMPOSE = ["docker", "compose", "-f", ".isoloom/docker/compose.yml"]
-BASE = os.environ.get("APP_BASE_URL", "http://localhost:3206")
+BASE = os.environ.get("APP_BASE_URL", "http://localhost")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 

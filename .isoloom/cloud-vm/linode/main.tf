@@ -89,7 +89,7 @@ resource "linode_firewall" "env" {
     label    = "published"
     action   = "ACCEPT"
     protocol = "TCP"
-    ports    = "3206"
+    ports    = "80"
     ipv4     = [var.allowed_cidr]
   }
   inbound {
@@ -284,6 +284,6 @@ output "checks" {
 
 output "published" {
   value = {
-    "web/portal" = "${one(linode_instance.web.ipv4)}:3206"
+    "web/portal" = "${one(linode_instance.web.ipv4)}:80"
   }
 }

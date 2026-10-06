@@ -132,8 +132,8 @@ resource "oci_core_security_list" "env" {
     source      = var.allowed_cidr
     protocol    = "6"
     tcp_options {
-      min = 3206
-      max = 3206
+      min = 80
+      max = 80
     }
   }
 }
@@ -305,6 +305,6 @@ output "checks" {
 
 output "published" {
   value = {
-    "web/portal" = "${oci_core_instance.web.public_ip}:3206"
+    "web/portal" = "${oci_core_instance.web.public_ip}:80"
   }
 }
