@@ -171,7 +171,7 @@ resource "proxmox_virtual_environment_file" "router" {
       packages = ["nftables", "qemu-guest-agent"]
       write_files = [
         { path = "/etc/systemd/network/10-wan.network", content = join("\n", ["[Match]", "MACAddress=${format("02:15:%02x:00:00:00", var.slot)}", "", "[Network]", "DHCP=yes"]) },
-        { path = "/etc/nftables.conf", content = "flush ruleset\ntable inet isoloom {\n  chain forward {\n    type filter hook forward priority 0; policy drop;\n    ct state established,related accept\n    ip daddr 10.20.0.31 tcp dport 3206 ct status dnat accept\n    ip saddr { 10.20.0.0/24 } ip daddr != { 10.20.0.0/24 } accept\n  }\n  chain prerouting {\n    type nat hook prerouting priority -100;\n    ip saddr != { 10.20.0.0/24 } tcp dport 3206 dnat ip to 10.20.0.31:3206\n  }\n  chain postrouting {\n    type nat hook postrouting priority 100;\n    ip saddr { 10.20.0.0/24 } ip daddr != { 10.20.0.0/24 } masquerade\n  }\n}\n" },
+        { path = "/etc/nftables.conf", content = "flush ruleset\ntable inet isoloom {\n  chain forward {\n    type filter hook forward priority 0; policy drop;\n    ct state established,related accept\n    ip daddr 10.20.0.31 tcp dport 80 ct status dnat accept\n    ip saddr { 10.20.0.0/24 } ip daddr != { 10.20.0.0/24 } accept\n  }\n  chain prerouting {\n    type nat hook prerouting priority -100;\n    ip saddr != { 10.20.0.0/24 } tcp dport 80 dnat ip to 10.20.0.31:80\n  }\n  chain postrouting {\n    type nat hook postrouting priority 100;\n    ip saddr { 10.20.0.0/24 } ip daddr != { 10.20.0.0/24 } masquerade\n  }\n}\n" },
         { path = "/etc/sysctl.d/90-isoloom.conf", content = "net.ipv4.ip_forward=1\n" },
         { path = "/etc/systemd/network/20-lab.network", content = join("\n", ["[Match]", "MACAddress=${format("02:15:%02x:01:%02x:00", var.slot, 0)}", "", "[Network]", "Address=10.20.0.254/24", "ConfigureWithoutCarrier=yes"]) }
       ]
@@ -370,6 +370,6 @@ output "address" {
 # Published services, from the router's uplink address.
 output "published" {
   value = {
-    "web/portal" = "${local.router_address}:3206"
+    "web/portal" = "${local.router_address}:80"
   }
 }

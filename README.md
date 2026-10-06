@@ -17,10 +17,10 @@ docker compose -f .isoloom/docker/compose.yml up -d --build --wait
 With VMs (VirtualBox, VMware, Parallels, libvirt): `cd .isoloom/vagrant && vagrant up`.
 After changing `isoloom.yml`, run `isoloom generate` and commit `.isoloom/`.
 
-Open http://localhost:3206 for the API docs, then:
+Open http://localhost for the API docs, then:
 
 ```bash
-curl -H "X-Portal-Key: vendor-demo-key" http://localhost:3206/api/invoices/INV-20507
+curl -H "X-Portal-Key: vendor-demo-key" http://localhost/api/invoices/INV-20507
 ```
 
 The `amount` field is your evidence. Without the CyberCTF launcher the lab uses

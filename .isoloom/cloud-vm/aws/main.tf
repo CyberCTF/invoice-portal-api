@@ -210,8 +210,8 @@ resource "aws_security_group" "web" {
   }
   ingress {
     description = "published"
-    from_port   = 3206
-    to_port     = 3206
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = [var.allowed_cidr]
   }
@@ -306,6 +306,6 @@ output "checks" {
 
 output "published" {
   value = {
-    "web/portal" = "${aws_instance.web.public_ip}:3206"
+    "web/portal" = "${aws_instance.web.public_ip}:80"
   }
 }

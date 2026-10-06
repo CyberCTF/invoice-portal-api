@@ -83,7 +83,7 @@ resource "oci_core_security_list" "env" {
     protocol    = "all"
   }
   dynamic "ingress_security_rules" {
-    for_each = concat([22], [3206])
+    for_each = concat([22], [80])
     content {
       source   = var.allowed_cidr
       protocol = "6"
@@ -182,7 +182,7 @@ resource "terraform_data" "environment" {
       "set -e",
       "tar -xzf /tmp/isoloom-project.tgz -C /opt/isoloom && rm -f /tmp/isoloom-project.tgz",
       "command -v docker >/dev/null || curl -fsSL https://get.docker.com | sudo sh",
-      "cd /opt/isoloom && set -a; . /tmp/isoloom-inputs.env; set +a; sudo -E env ISOLOOM_PUBLISH_ADDRESS=0.0.0.0 docker compose -f .isoloom/docker/compose.yml up -d --build --wait --wait-timeout 900",
+      "cd /opt/isoloom && set -a; . /tmp/isoloom-inputs.env; set +a; sudo -E env ISOLOOM_PUBLISH_ADDRESS=0.0.0.0 ISOLOOM_PUBLISH_FIXED=1 docker compose -f .isoloom/docker/compose.yml up -d --build --wait --wait-timeout 900",
       "sudo mkdir -p /var/lib/isoloom && echo ready | sudo tee /var/lib/isoloom/ready >/dev/null",
     ]
   }
