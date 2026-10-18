@@ -1,6 +1,6 @@
 {
   "generated_by_isoloom": "from isoloom.yml; don't edit: change the spec and run `isoloom generate` (`isoloom check` fails when this file is out of date)",
-  "resolved_version": 1,
+  "resolved_version": 3,
   "name": "invoice-portal-api",
   "instance": null,
   "inputs": [
@@ -27,6 +27,7 @@
         "docker",
         "vm"
       ],
+      "role": "target",
       "arch": "amd64",
       "os": "debian-12",
       "windows": false,
@@ -36,18 +37,15 @@
       "docker_addresses": {
         "lab": "10.20.0.32"
       },
-      "services": [
-        {
+      "ports": {
+        "mysql": {
           "port": 3207,
-          "name": "mysql",
-          "http": false,
-          "publish": null
+          "protocol": "tcp"
         }
-      ],
+      },
       "depends_on": [],
       "inputs": [
-        "CTF_API_URL",
-        "CTF_LAUNCH_TOKEN"
+        "CTF_API_URL"
       ],
       "volumes": {
         "evidence": "/var/lib/ctf"
@@ -60,7 +58,9 @@
       "gateway_of": [],
       "routes": [],
       "default_gateway": null,
-      "offline": false
+      "offline": false,
+      "os_family": "debian",
+      "os_version": "12"
     },
     "web": {
       "access": false,
@@ -69,6 +69,7 @@
         "docker",
         "vm"
       ],
+      "role": "target",
       "arch": "amd64",
       "os": "debian-12",
       "windows": false,
@@ -78,14 +79,15 @@
       "docker_addresses": {
         "lab": "10.20.0.31"
       },
-      "services": [
-        {
+      "ports": {
+        "portal": {
           "port": 80,
-          "name": "portal",
-          "http": true,
-          "publish": 80
+          "protocol": "http",
+          "publish": 80,
+          "published": 80,
+          "url": "http://127.0.0.1:80/"
         }
-      ],
+      },
       "depends_on": [
         "database"
       ],
@@ -99,7 +101,9 @@
       "gateway_of": [],
       "routes": [],
       "default_gateway": null,
-      "offline": false
+      "offline": false,
+      "os_family": "debian",
+      "os_version": "12"
     }
   },
   "start_order": [
@@ -111,6 +115,8 @@
   "groups": {},
   "router": null,
   "controller": {
+    "role": "infra",
+    "keep_running": false,
     "addresses": {
       "lab": "10.20.0.253"
     }
@@ -118,7 +124,9 @@
   "published": [
     {
       "machine": "web",
+      "name": "portal",
       "port": 80,
+      "protocol": "http",
       "host_port": 80
     }
   ],
@@ -131,6 +139,7 @@
       "kubernetes",
       "vagrant",
       "proxmox",
+      "esxi",
       "cloud-vm"
     ],
     "generated": [
@@ -141,12 +150,28 @@
       "kubernetes",
       "vagrant",
       "proxmox",
+      "esxi",
       "cloud-vm"
     ],
     "refused": {},
     "not_possible": {
       "hybrid": "only when some machines are containers and others are VMs",
-      "external": "needs `external:` on database, web"
+      "external": "overrides.external.machines.database: the external target reaches machines that exist already, and `database` names no host",
+      "cloud-services": "left out by `targets:`"
+    },
+    "clouds": {
+      "cloud-vm": {
+        "generated": [
+          "aws",
+          "azure",
+          "gcp",
+          "linode",
+          "oci"
+        ],
+        "refused": {
+          "digitalocean": "DigitalOcean cloud-vm takes one machine on one network: a droplet joins one VPC, at a private address DigitalOcean picks, so other machines couldn't reach it at its spec address"
+        }
+      }
     }
   },
   "checks": {
@@ -207,5 +232,5 @@
       }
     ]
   },
-  "message": "Globex Finance's supplier portal API answers at http://localhost:80/.\nStart with the documentation it publishes; the invoice you are after is INV-20507.\n"
+  "message": "Globex Finance's supplier portal API answers at http://127.0.0.1:80/.\nStart with the documentation it publishes; the invoice you are after is INV-20507.\n"
 }

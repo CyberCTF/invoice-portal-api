@@ -2,21 +2,17 @@
 # `isoloom generate`. `isoloom check` fails when this file is out of date.
 # Auth:   export LINODE_TOKEN=<token> (the provider reads it).
 # Start:  terraform -chdir=.isoloom/cloud-vm/linode init && terraform -chdir=.isoloom/cloud-vm/linode apply \
-#           -var allowed_cidr=<your IP>/32 -var ssh_public_key="$(cat ~/.ssh/id_ed25519.pub)" -var ssh_private_key_file=~/.ssh/id_ed25519
+#           -var allowed_cidr=<your IP>/32 -var ssh_public_key="$(cat ~/.ssh/id_ed25519.pub)"
 # Stop:   terraform -chdir=.isoloom/cloud-vm/linode destroy (same variables)
+# Then:   the machines wait for the project: run the lab through the Isothrum runner (run.json
+#         beside this file), which delivers the project over SSH, waits for each set-up and runs the checks.
 
 terraform {
   required_version = ">= 1.6"
   backend "local" {}
   required_providers {
-    linode = {
-      source  = "linode/linode"
-      version = "~> 2.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
+    linode = { source = "linode/linode", version = "~> 4.7.0" }
+    random = { source = "hashicorp/random", version = "~> 3.9.1" }
   }
 }
 
@@ -24,27 +20,28 @@ variable "region" {
   type    = string
   default = "fr-par"
 }
-variable "allowed_cidr" {
-  type        = string
-  description = "Who may reach the machines (SSH and the published ports), e.g. your IP/32"
-}
-variable "ssh_public_key" {
-  type = string
-}
-variable "ssh_private_key_file" {
-  type        = string
-  description = "The private key of ssh_public_key: Terraform sets the machines up over SSH"
-}
-variable "auto_stop_minutes" {
-  type        = number
-  default     = 0
-  description = "Shut the machines down after this many minutes (0: never)"
-}
+
 variable "inputs" {
   type        = map(string)
   default     = {}
   sensitive   = true
   description = "Values given at launch"
+}
+
+variable "allowed_cidr" {
+  type        = string
+  description = "Who may reach the machines (SSH and the published ports), e.g. your IP/32"
+}
+
+variable "ssh_public_key" {
+  type        = string
+  description = "The key the machines let in: the Isothrum runner's (it delivers the project and runs the checks over SSH)"
+}
+
+variable "expires_at" {
+  type        = string
+  default     = ""
+  description = "When the environment should end, in Unix seconds (empty: no end): a tag on every resource, so a reaper finds what to destroy, and the time the machines shut themselves down"
 }
 
 provider "linode" {}
@@ -58,24 +55,59 @@ resource "terraform_data" "id" {
 
 locals {
   name = "isoloom-invoice-portal-api-${terraform_data.id.output}"
-  root = abspath("${path.module}/../../..")
 }
 
-# The environment's one network: a VPC with a subnet at its exact range, so every machine keeps
-# its address (10.20.0.0/24).
+# The environment's networks: a VPC with a subnet per network at its exact range, so every
+# machine keeps its address.
 resource "linode_vpc" "env" {
   label  = local.name
   region = var.region
 }
 
-resource "linode_vpc_subnet" "env" {
+resource "linode_vpc_subnet" "lab" {
   vpc_id = linode_vpc.env.id
   label  = "lab"
   ipv4   = "10.20.0.0/24"
 }
 
-resource "linode_firewall" "env" {
-  label           = local.name
+# Machine `database` on `lab`: what may reach it, and where it may not go.
+resource "linode_firewall" "database" {
+  label           = "${local.name}-database"
+  inbound_policy  = "DROP"
+  outbound_policy = "ACCEPT"
+  inbound {
+    label    = "ssh"
+    action   = "ACCEPT"
+    protocol = "TCP"
+    ports    = "22"
+    ipv4     = [var.allowed_cidr]
+  }
+  inbound {
+    label    = "vpc-tcp"
+    action   = "ACCEPT"
+    protocol = "TCP"
+    ports    = "1-65535"
+    ipv4     = ["10.20.0.0/24"]
+  }
+  inbound {
+    label    = "vpc-udp"
+    action   = "ACCEPT"
+    protocol = "UDP"
+    ports    = "1-65535"
+    ipv4     = ["10.20.0.0/24"]
+  }
+  inbound {
+    label    = "vpc-icmp"
+    action   = "ACCEPT"
+    protocol = "ICMP"
+    ipv4     = ["10.20.0.0/24"]
+  }
+  linodes = [linode_instance.database.id]
+}
+
+# Machine `web` on `lab`: what may reach it, and where it may not go.
+resource "linode_firewall" "web" {
+  label           = "${local.name}-web"
   inbound_policy  = "DROP"
   outbound_policy = "ACCEPT"
   inbound {
@@ -112,7 +144,7 @@ resource "linode_firewall" "env" {
     protocol = "ICMP"
     ipv4     = ["10.20.0.0/24"]
   }
-  linodes = [linode_instance.database.id, linode_instance.web.id]
+  linodes = [linode_instance.web.id]
 }
 
 resource "random_password" "database" {
@@ -131,57 +163,20 @@ resource "linode_instance" "database" {
   authorized_keys = [trimspace(var.ssh_public_key)]
   root_pass       = random_password.database.result
   booted          = true
-  tags            = ["isoloom", "invoice-portal-api"]
+  tags            = concat(["isoloom", "invoice-portal-api", local.name], var.expires_at == "" ? [] : ["isoloom-expires-${var.expires_at}"])
   metadata {
-    user_data = base64encode(var.auto_stop_minutes > 0 ? "#!/bin/sh\nshutdown -h +${var.auto_stop_minutes}\n" : "")
+    user_data = base64encode("#!/bin/sh\n# Isoloom: this machine sets itself up. Its progress is in /var/lib/isoloom/ready (isoloom-ready/1), its output in /var/log/isoloom-setup.log. The Isothrum runner delivers the project over SSH.\nmkdir -p /var/lib/isoloom\ncat > /var/lib/isoloom/setup.sh.new <<'ISOLOOM_SETUP'\n#!/bin/sh\numask 022\ncase \"$(head -n1 /var/lib/isoloom/ready 2>/dev/null)\" in ready|failed:*) exit 0 ;; esac\ne=${var.expires_at}; if [ -n \"$e\" ]; then m=$(( (e - $(date +%s)) / 60 )); [ \"$m\" -ge 1 ] || m=1; shutdown -h \"+$m\" >/dev/null 2>&1 || true; fi\npart=$(cat /var/lib/isoloom/part 2>/dev/null || echo 1)\nif [ \"$part\" = 1 ]; then\necho 'running: waiting for the project (the runner delivers it over SSH)' > /var/lib/isoloom/ready; { i=0; until [ -f /var/lib/isoloom/project-delivered ]; do i=$((i+5)); if [ $i -gt 2400 ]; then echo 'the project never came: start the lab through the Isothrum runner (run.json), which delivers it over SSH' >&2; exit 1; fi; sleep 5; done; } || { echo 'failed: waiting for the project (the runner delivers it over SSH)' > /var/lib/isoloom/ready; exit 1; }\necho 'running: inputs' > /var/lib/isoloom/ready; { mkdir -p /var/lib/isoloom && (umask 077 && echo ${base64encode(join("\n", ["CTF_API_URL='${replace(lookup(var.inputs, "CTF_API_URL", ""), "'", "'\\''")}'"]))} | base64 -d > /var/lib/isoloom/inputs.env); } || { echo 'failed: inputs' > /var/lib/isoloom/ready; exit 1; }\necho 'running: inputs in place' > /var/lib/isoloom/ready; { install -m 600 /var/lib/isoloom/inputs.env /tmp/isoloom-inputs.env; } || { echo 'failed: inputs in place' > /var/lib/isoloom/ready; exit 1; }\necho 'running: the machine'\\''s interfaces' > /var/lib/isoloom/ready; { command -v sudo >/dev/null || (apt-get update -qq && apt-get install -y -qq sudo); } || { echo 'failed: the machine'\\''s interfaces' > /var/lib/isoloom/ready; exit 1; }\necho 'running: hosts file' > /var/lib/isoloom/ready; { sh -c 'printf '\\''%s\\n'\\'' '\\''10.20.0.32 database'\\'' '\\''10.20.0.31 web'\\'' | while IFS= read -r l; do grep -qxF \"$l\" /etc/hosts || printf '\\''%s\\n'\\'' \"$l\" >> /etc/hosts; done'; } || { echo 'failed: hosts file' > /var/lib/isoloom/ready; exit 1; }\necho 'running: volume folders' > /var/lib/isoloom/ready; { sh -c 'mkdir -p '\\''/var/lib/ctf'\\'''; } || { echo 'failed: volume folders' > /var/lib/isoloom/ready; exit 1; }\necho 'running: waiting for its secrets' > /var/lib/isoloom/ready; { sh -c 'set -e\nn=0; until [ -f /var/lib/isoloom/secrets/.delivered ]; do [ \"$n\" -gt 0 ] || echo '\\''database: waiting for its secrets, which the runner (isothrum up) delivers'\\''; n=$((n+1)); if [ \"$n\" -gt 360 ]; then echo '\\''database: its secrets never came; start the environment with the runner (isothrum up), which reads them from their stores and delivers them'\\'' >&2; exit 1; fi; sleep 5; done\nmkdir -p /etc/isoloom\ncat > /etc/isoloom/apply-secrets.sh <<'\\''APPLY-SECRETS'\\''\n#!/bin/sh\n# The machine'\\''s secrets, put in place\ninstall -D -o 0 -g 0 -m 0400 /var/lib/isoloom/secrets/input-ctf-launch-token '\\''/run/lab/launch-token'\\''\nexit 0\nAPPLY-SECRETS\nchmod +x /etc/isoloom/apply-secrets.sh\nif command -v systemctl >/dev/null; then\ncat > /etc/systemd/system/isoloom-apply-secrets.service <<'\\''UNIT'\\''\n[Unit]\nDescription=The machine'\\''s secrets, put in place\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=-/etc/isoloom/apply-secrets.sh\n\n[Install]\nWantedBy=multi-user.target\nUNIT\nsystemctl daemon-reload\nsystemctl enable isoloom-apply-secrets.service\nsystemctl restart isoloom-apply-secrets.service\nelse\nmkdir -p /etc/local.d && ln -sf /etc/isoloom/apply-secrets.sh /etc/local.d/isoloom-apply-secrets.start\nrc-update add local default >/dev/null 2>&1 || true\n/etc/isoloom/apply-secrets.sh || true\nfi'; } || { echo 'failed: waiting for its secrets' > /var/lib/isoloom/ready; exit 1; }\necho 'running: provision/database.sh' > /var/lib/isoloom/ready; { sh -c 'cd /opt/isoloom && sh -c '\\''set -a; . /tmp/isoloom-inputs.env; set +a; sh provision/database.sh'\\'''; } || { echo 'failed: provision/database.sh' > /var/lib/isoloom/ready; exit 1; }\necho 'running: setup scripts' > /var/lib/isoloom/ready; { sh -c '[ -f /var/lib/isoloom/setup.done ] || (\nset -e\nset -a\n# shellcheck source=/dev/null # the inputs file, written on the machine when it starts\n. /tmp/isoloom-inputs.env\nset +a\nmkdir -p '\\''/opt/isoloom'\\'' && cd '\\''/opt/isoloom'\\''\nsh '\\''/opt/isoloom/build/database/evidence.sh'\\''\nmkdir -p /var/lib/isoloom && touch /var/lib/isoloom/setup.done\n)'; } || { echo 'failed: setup scripts' > /var/lib/isoloom/ready; exit 1; }\necho 'running: health check' > /var/lib/isoloom/ready; { sh -c 'mkdir -p /var/lib/isoloom && echo ready > /var/lib/isoloom/ready'; } || { echo 'failed: health check' > /var/lib/isoloom/ready; exit 1; }\nfi\necho ready > /var/lib/isoloom/ready\nrm -f /var/lib/isoloom/part\ncommand -v systemctl >/dev/null && systemctl disable isoloom-setup.service >/dev/null 2>&1\nexit 0\nISOLOOM_SETUP\nmv -f /var/lib/isoloom/setup.sh.new /var/lib/isoloom/setup.sh\nif command -v systemctl >/dev/null; then\ncat > /etc/systemd/system/isoloom-setup.service <<'ISOLOOM_UNIT'\n[Unit]\nDescription=Isoloom: the machine's set-up\nWants=network-online.target\nAfter=network-online.target cloud-final.service google-startup-scripts.service\n\n[Service]\nType=oneshot\nExecStart=/bin/sh /var/lib/isoloom/setup.sh\nStandardOutput=append:/var/log/isoloom-setup.log\nStandardError=append:/var/log/isoloom-setup.log\nTimeoutStartSec=0\n\n[Install]\nWantedBy=multi-user.target\nISOLOOM_UNIT\nsystemctl daemon-reload\nsystemctl enable isoloom-setup.service >/dev/null 2>&1\nsystemctl start --no-block isoloom-setup.service\nelse\nnohup sh /var/lib/isoloom/setup.sh >> /var/log/isoloom-setup.log 2>&1 &\nfi\n")
   }
   interface {
     purpose = "public"
   }
   interface {
     purpose   = "vpc"
-    subnet_id = linode_vpc_subnet.env.id
+    subnet_id = linode_vpc_subnet.lab.id
     ipv4 {
       vpc = "10.20.0.32"
     }
   }
-}
-
-resource "terraform_data" "database" {
-  triggers_replace = [linode_instance.database.id]
-  connection {
-    type        = "ssh"
-    host        = one(linode_instance.database.ipv4)
-    user        = "root"
-    private_key = file(pathexpand(var.ssh_private_key_file))
-    timeout     = "10m"
-  }
-  provisioner "remote-exec" {
-    inline = ["cloud-init status --wait >/dev/null 2>&1 || true", "command -v sudo >/dev/null || (apt-get update -qq && apt-get install -y -qq sudo)", "sudo mkdir -p /opt/isoloom && sudo chown root /opt/isoloom"]
-  }
-  provisioner "local-exec" {
-    command = "tar -czf \"${path.module}/.isoloom-project-database.tgz\" --exclude=.git --exclude=.vagrant --exclude=.terraform --exclude=.isoloom-project*.tgz -C \"${local.root}\" ."
-  }
-  provisioner "file" {
-    source      = "${path.module}/.isoloom-project-database.tgz"
-    destination = "/tmp/isoloom-project.tgz"
-  }
-  provisioner "file" {
-    content     = join("\n", ["CTF_API_URL=${jsonencode(lookup(var.inputs, "CTF_API_URL", ""))}", "CTF_LAUNCH_TOKEN=${jsonencode(lookup(var.inputs, "CTF_LAUNCH_TOKEN", ""))}"])
-    destination = "/tmp/isoloom-inputs.env"
-  }
-  provisioner "remote-exec" {
-    inline = [
-      "set -e",
-      "cloud-init status --wait >/dev/null 2>&1 || true",
-      "tar -xzf /tmp/isoloom-project.tgz -C /opt/isoloom && rm -f /tmp/isoloom-project.tgz",
-      "printf '%s\\n' '10.20.0.31 web' | sudo tee -a /etc/hosts >/dev/null",
-      "sudo mkdir -p /var/lib/ctf",
-      "cd /opt/isoloom && sudo -E sh -c 'set -a; . /tmp/isoloom-inputs.env; set +a; sh provision/database.sh'",
-      "sudo mkdir -p /var/lib/isoloom && echo ready | sudo tee /var/lib/isoloom/ready >/dev/null"
-    ]
-  }
-  depends_on = [linode_firewall.env]
 }
 
 resource "random_password" "web" {
@@ -200,67 +195,36 @@ resource "linode_instance" "web" {
   authorized_keys = [trimspace(var.ssh_public_key)]
   root_pass       = random_password.web.result
   booted          = true
-  tags            = ["isoloom", "invoice-portal-api"]
+  tags            = concat(["isoloom", "invoice-portal-api", local.name], var.expires_at == "" ? [] : ["isoloom-expires-${var.expires_at}"])
   metadata {
-    user_data = base64encode(var.auto_stop_minutes > 0 ? "#!/bin/sh\nshutdown -h +${var.auto_stop_minutes}\n" : "")
+    user_data = base64encode("#!/bin/sh\n# Isoloom: this machine sets itself up. Its progress is in /var/lib/isoloom/ready (isoloom-ready/1), its output in /var/log/isoloom-setup.log. The Isothrum runner delivers the project over SSH.\nmkdir -p /var/lib/isoloom\ncat > /var/lib/isoloom/setup.sh.new <<'ISOLOOM_SETUP'\n#!/bin/sh\numask 022\ncase \"$(head -n1 /var/lib/isoloom/ready 2>/dev/null)\" in ready|failed:*) exit 0 ;; esac\ne=${var.expires_at}; if [ -n \"$e\" ]; then m=$(( (e - $(date +%s)) / 60 )); [ \"$m\" -ge 1 ] || m=1; shutdown -h \"+$m\" >/dev/null 2>&1 || true; fi\npart=$(cat /var/lib/isoloom/part 2>/dev/null || echo 1)\nif [ \"$part\" = 1 ]; then\necho 'running: waiting for the project (the runner delivers it over SSH)' > /var/lib/isoloom/ready; { i=0; until [ -f /var/lib/isoloom/project-delivered ]; do i=$((i+5)); if [ $i -gt 2400 ]; then echo 'the project never came: start the lab through the Isothrum runner (run.json), which delivers it over SSH' >&2; exit 1; fi; sleep 5; done; } || { echo 'failed: waiting for the project (the runner delivers it over SSH)' > /var/lib/isoloom/ready; exit 1; }\necho 'running: the machine'\\''s interfaces' > /var/lib/isoloom/ready; { command -v sudo >/dev/null || (apt-get update -qq && apt-get install -y -qq sudo); } || { echo 'failed: the machine'\\''s interfaces' > /var/lib/isoloom/ready; exit 1; }\necho 'running: hosts file' > /var/lib/isoloom/ready; { sh -c 'printf '\\''%s\\n'\\'' '\\''10.20.0.32 database'\\'' '\\''10.20.0.31 web'\\'' | while IFS= read -r l; do grep -qxF \"$l\" /etc/hosts || printf '\\''%s\\n'\\'' \"$l\" >> /etc/hosts; done'; } || { echo 'failed: hosts file' > /var/lib/isoloom/ready; exit 1; }\necho 'running: waiting for database' > /var/lib/isoloom/ready; { sh -c 'i=0; until (bash -c '\\''</dev/tcp/database/3207'\\'' 2>/dev/null || nc -z -w 2 database 3207 2>/dev/null); do i=$((i+2)); if [ $i -ge 900 ]; then echo \"database didn'\\''t answer within 900s\" >&2; exit 1; fi; sleep 2; done; echo \"database answers\"'; } || { echo 'failed: waiting for database' > /var/lib/isoloom/ready; exit 1; }\necho 'running: provision/web.sh' > /var/lib/isoloom/ready; { sh -c 'cd /opt/isoloom && sh -c '\\''sh provision/web.sh'\\'''; } || { echo 'failed: provision/web.sh' > /var/lib/isoloom/ready; exit 1; }\necho 'running: health check' > /var/lib/isoloom/ready; { sh -c 'mkdir -p /var/lib/isoloom && echo ready > /var/lib/isoloom/ready'; } || { echo 'failed: health check' > /var/lib/isoloom/ready; exit 1; }\nfi\necho ready > /var/lib/isoloom/ready\nrm -f /var/lib/isoloom/part\ncommand -v systemctl >/dev/null && systemctl disable isoloom-setup.service >/dev/null 2>&1\nexit 0\nISOLOOM_SETUP\nmv -f /var/lib/isoloom/setup.sh.new /var/lib/isoloom/setup.sh\nif command -v systemctl >/dev/null; then\ncat > /etc/systemd/system/isoloom-setup.service <<'ISOLOOM_UNIT'\n[Unit]\nDescription=Isoloom: the machine's set-up\nWants=network-online.target\nAfter=network-online.target cloud-final.service google-startup-scripts.service\n\n[Service]\nType=oneshot\nExecStart=/bin/sh /var/lib/isoloom/setup.sh\nStandardOutput=append:/var/log/isoloom-setup.log\nStandardError=append:/var/log/isoloom-setup.log\nTimeoutStartSec=0\n\n[Install]\nWantedBy=multi-user.target\nISOLOOM_UNIT\nsystemctl daemon-reload\nsystemctl enable isoloom-setup.service >/dev/null 2>&1\nsystemctl start --no-block isoloom-setup.service\nelse\nnohup sh /var/lib/isoloom/setup.sh >> /var/log/isoloom-setup.log 2>&1 &\nfi\n")
   }
   interface {
     purpose = "public"
   }
   interface {
     purpose   = "vpc"
-    subnet_id = linode_vpc_subnet.env.id
+    subnet_id = linode_vpc_subnet.lab.id
     ipv4 {
       vpc = "10.20.0.31"
     }
   }
 }
 
-resource "terraform_data" "web" {
-  triggers_replace = [linode_instance.web.id]
-  connection {
-    type        = "ssh"
-    host        = one(linode_instance.web.ipv4)
-    user        = "root"
-    private_key = file(pathexpand(var.ssh_private_key_file))
-    timeout     = "10m"
-  }
-  provisioner "remote-exec" {
-    inline = ["cloud-init status --wait >/dev/null 2>&1 || true", "command -v sudo >/dev/null || (apt-get update -qq && apt-get install -y -qq sudo)", "sudo mkdir -p /opt/isoloom && sudo chown root /opt/isoloom"]
-  }
-  provisioner "local-exec" {
-    command = "tar -czf \"${path.module}/.isoloom-project-web.tgz\" --exclude=.git --exclude=.vagrant --exclude=.terraform --exclude=.isoloom-project*.tgz -C \"${local.root}\" ."
-  }
-  provisioner "file" {
-    source      = "${path.module}/.isoloom-project-web.tgz"
-    destination = "/tmp/isoloom-project.tgz"
-  }
-  provisioner "remote-exec" {
-    inline = [
-      "set -e",
-      "cloud-init status --wait >/dev/null 2>&1 || true",
-      "tar -xzf /tmp/isoloom-project.tgz -C /opt/isoloom && rm -f /tmp/isoloom-project.tgz",
-      "printf '%s\\n' '10.20.0.32 database' | sudo tee -a /etc/hosts >/dev/null",
-      "sh -c 'i=0; until (bash -c '\\''</dev/tcp/database/3207'\\'' 2>/dev/null || nc -z -w 2 database 3207 2>/dev/null); do i=$((i+2)); if [ $i -ge 900 ]; then echo \"database didn'\\''t answer within 900s\" >&2; exit 1; fi; sleep 2; done; echo \"database answers\"'",
-      "cd /opt/isoloom && sudo -E sh -c 'sh provision/web.sh'",
-      "sudo mkdir -p /var/lib/isoloom && echo ready | sudo tee /var/lib/isoloom/ready >/dev/null"
-    ]
-  }
-  depends_on = [linode_firewall.env, terraform_data.database]
+output "machines" {
+  value = { database = one(linode_instance.database.ipv4), web = one(linode_instance.web.ipv4) }
 }
 
-output "machines" {
-  value = {
-    database = one(linode_instance.database.ipv4)
-    web      = one(linode_instance.web.ipv4)
-  }
+output "address_database" {
+  value = one(linode_instance.database.ipv4)
+}
+
+output "address_web" {
+  value = one(linode_instance.web.ipv4)
 }
 
 output "ssh_users" {
-  value = {
-    database = "root"
-    web      = "root"
-  }
+  value = { database = "root", web = "root" }
 }
 
 output "ip" {
@@ -271,16 +235,26 @@ output "ready_file" {
   value = "/var/lib/isoloom/ready"
 }
 
-# The checks: each runner on the machine it stands for (ssh <user>@<host> '<command>'), or `isoloom test cloud-vm`.
+# The checks: each runner on the machine it stands for (ssh <user>@<host> '<command>'), or `isothrum check .`.
 output "checks" {
   value = [
-    { position = "database", machine = "database", host = one(linode_instance.database.ipv4), user = "root", command = "cd /opt/isoloom && sh .isoloom/cloud-vm/checks/database.sh" },
-    { position = "web", machine = "web", host = one(linode_instance.web.ipv4), user = "root", command = "cd /opt/isoloom && sh .isoloom/cloud-vm/checks/web.sh" }
+    {
+      position = "database"
+      machine  = "database"
+      host     = one(linode_instance.database.ipv4)
+      user     = "root"
+      command  = "cd /opt/isoloom && sh .isoloom/cloud-vm/checks/database.sh"
+    },
+    {
+      position = "web"
+      machine  = "web"
+      host     = one(linode_instance.web.ipv4)
+      user     = "root"
+      command  = "cd /opt/isoloom && sh .isoloom/cloud-vm/checks/web.sh"
+    }
   ]
 }
 
 output "published" {
-  value = {
-    "web/portal" = "${one(linode_instance.web.ipv4)}:80"
-  }
+  value = { "web/portal" = "${one(linode_instance.web.ipv4)}:80" }
 }

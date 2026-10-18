@@ -1,0 +1,837 @@
+{
+  "$schema": "https://www.isoloom.com/schema/run-manifest/v0.json",
+  "manifest_version": 0,
+  "generator": {
+    "name": "isoloom",
+    "version": "1.0.0"
+  },
+  "environment": {
+    "name": "invoice-portal-api",
+    "instance": null,
+    "message": "Globex Finance's supplier portal API answers at http://127.0.0.1:${published.web.portal}/.\nStart with the documentation it publishes; the invoice you are after is INV-20507.\n"
+  },
+  "target": "docker-vm",
+  "driver": "vagrant",
+  "hosts": [
+    "linux",
+    "macos",
+    "windows"
+  ],
+  "tools": [
+    {
+      "name": "vagrant",
+      "probe": [
+        "vagrant",
+        "--version"
+      ],
+      "min_version": "2.4.0"
+    },
+    {
+      "name": "virtualbox",
+      "probe": [
+        "VBoxManage",
+        "--version"
+      ],
+      "providers": [
+        "virtualbox"
+      ]
+    },
+    {
+      "name": "vmware",
+      "probe": [
+        "vmrun",
+        "list"
+      ],
+      "providers": [
+        "vmware_desktop"
+      ]
+    },
+    {
+      "name": "parallels",
+      "probe": [
+        "prlctl",
+        "--version"
+      ],
+      "hosts": [
+        "macos"
+      ],
+      "providers": [
+        "parallels"
+      ]
+    },
+    {
+      "name": "libvirt",
+      "probe": [
+        "virsh",
+        "--version"
+      ],
+      "hosts": [
+        "linux"
+      ],
+      "providers": [
+        "libvirt"
+      ]
+    },
+    {
+      "name": "qemu",
+      "probe": [
+        "qemu-img",
+        "--version"
+      ],
+      "providers": [
+        "qemu"
+      ]
+    }
+  ],
+  "identity": {
+    "vagrant": {
+      "providers": [
+        {
+          "id": "virtualbox",
+          "hosts": [
+            "linux",
+            "macos",
+            "windows"
+          ],
+          "elevation": "none",
+          "refusal": null
+        },
+        {
+          "id": "vmware_desktop",
+          "hosts": [
+            "linux",
+            "macos",
+            "windows"
+          ],
+          "plugin": "vagrant-vmware-desktop",
+          "elevation": "none",
+          "refusal": null
+        },
+        {
+          "id": "parallels",
+          "hosts": [
+            "macos"
+          ],
+          "plugin": "vagrant-parallels",
+          "elevation": "none",
+          "refusal": null
+        },
+        {
+          "id": "libvirt",
+          "hosts": [
+            "linux"
+          ],
+          "plugin": "vagrant-libvirt",
+          "elevation": "none",
+          "refusal": null
+        },
+        {
+          "id": "qemu",
+          "hosts": [
+            "linux",
+            "macos"
+          ],
+          "plugin": "vagrant-qemu",
+          "elevation": "none",
+          "refusal": null
+        },
+        {
+          "id": "utm",
+          "hosts": [
+            "macos"
+          ],
+          "plugin": "vagrant_utm",
+          "elevation": "none",
+          "refusal": null
+        },
+        {
+          "id": "vmware_esxi",
+          "hosts": [
+            "linux",
+            "macos",
+            "windows"
+          ],
+          "plugin": "vagrant-vmware-esxi",
+          "elevation": "none",
+          "remote": true,
+          "refusal": null
+        }
+      ],
+      "dotfile": "${run.state_dir}/vagrant"
+    }
+  },
+  "params": [
+    {
+      "name": "ISOLOOM_SSH_PROXY_COMMAND",
+      "description": "The command Vagrant's SSH to the VMs goes through when this host can't reach them directly (an ESXi host through the runner's relay on macOS).",
+      "providers": [
+        "vmware_esxi"
+      ],
+      "set_by": "runner",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "ISOLOOM_SSH_PROXY_COMMAND",
+          "steps": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ESXI_HOSTNAME",
+      "description": "The ESXi host.",
+      "required": true,
+      "providers": [
+        "vmware_esxi"
+      ],
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "ESXI_HOSTNAME",
+          "steps": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ESXI_HOSTPORT",
+      "description": "Its SSH port.",
+      "default": "22",
+      "providers": [
+        "vmware_esxi"
+      ],
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "ESXI_HOSTPORT",
+          "steps": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ESXI_USERNAME",
+      "description": "The ESXi user.",
+      "default": "root",
+      "providers": [
+        "vmware_esxi"
+      ],
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "ESXI_USERNAME",
+          "steps": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ESXI_DATASTORE",
+      "description": "The datastore the VMs' disks go on (default: ESXi's first).",
+      "providers": [
+        "vmware_esxi"
+      ],
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "ESXI_DATASTORE",
+          "steps": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ESXI_VIRTUAL_NETWORK",
+      "description": "Port groups, comma-separated: the management network, then one per lab network.",
+      "default": "VM Network",
+      "providers": [
+        "vmware_esxi"
+      ],
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "ESXI_VIRTUAL_NETWORK",
+          "steps": [
+            "*"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ISOLOOM_DERIVED",
+      "description": "0: the checks derived from the spec (reachability, no internet) are skipped.",
+      "default": "1",
+      "values": [
+        "0",
+        "1"
+      ],
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "ISOLOOM_DERIVED",
+          "steps": [
+            "check-networks",
+            "check-database",
+            "check-web"
+          ]
+        }
+      ]
+    }
+  ],
+  "secrets": [
+    {
+      "name": "CTF_API_URL",
+      "kind": "input",
+      "required": false,
+      "sensitive": false,
+      "machines": [
+        "database",
+        "database-init-1"
+      ],
+      "default": "",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "CTF_API_URL",
+          "steps": [
+            "start"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CTF_LAUNCH_TOKEN",
+      "kind": "input",
+      "required": false,
+      "sensitive": true,
+      "machines": [
+        "database",
+        "database-init-1"
+      ],
+      "default": "",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "CTF_LAUNCH_TOKEN",
+          "steps": [
+            "start"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ESXI_PASSWORD",
+      "kind": "connection",
+      "required": true,
+      "sensitive": true,
+      "providers": [
+        "vmware_esxi"
+      ],
+      "deliver": [
+        {
+          "via": "env",
+          "var": "ESXI_PASSWORD",
+          "steps": [
+            "*"
+          ]
+        }
+      ]
+    }
+  ],
+  "networks": [
+    {
+      "name": "lab",
+      "cidr": "10.20.0.0/24",
+      "internet": true,
+      "native": "invoice-portal-api_lab"
+    }
+  ],
+  "machines": [
+    {
+      "name": "docker",
+      "role": "infra",
+      "resources": {
+        "cpus": 2,
+        "memory_mb": 3072
+      },
+      "addresses": {},
+      "native": {
+        "vagrant": "default",
+        "vm_names": {
+          "virtualbox": "invoice-portal-api · docker",
+          "vmware_desktop": "invoice-portal-api · docker",
+          "hyperv": "invoice-portal-api-docker",
+          "parallels": "invoice-portal-api · docker",
+          "libvirt": "invoice-portal-api_default",
+          "utm": "invoice-portal-api · docker",
+          "vmware_esxi": "invoice-portal-api-docker"
+        }
+      }
+    },
+    {
+      "name": "database",
+      "role": "target",
+      "arch": "amd64",
+      "resources": {
+        "cpus": 1,
+        "memory_mb": 1024
+      },
+      "addresses": {
+        "lab": "10.20.0.32"
+      },
+      "native": {
+        "service": "database"
+      },
+      "volumes": [
+        {
+          "name": "evidence",
+          "path": "/var/lib/ctf",
+          "native": "invoice-portal-api_database-evidence"
+        }
+      ],
+      "ports": [
+        {
+          "name": "mysql",
+          "port": 3207,
+          "protocol": "tcp",
+          "http": false
+        }
+      ]
+    },
+    {
+      "name": "database-init-1",
+      "role": "job",
+      "of": "database",
+      "addresses": {},
+      "native": {
+        "service": "database-init-1"
+      }
+    },
+    {
+      "name": "web",
+      "role": "target",
+      "arch": "amd64",
+      "resources": {
+        "cpus": 1,
+        "memory_mb": 1024
+      },
+      "addresses": {
+        "lab": "10.20.0.31"
+      },
+      "native": {
+        "service": "web"
+      },
+      "ports": [
+        {
+          "name": "portal",
+          "port": 80,
+          "protocol": "tcp",
+          "http": true,
+          "publish": {
+            "mode": "fixed",
+            "preferred": 80,
+            "address": "127.0.0.1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "isoloom-check",
+      "role": "check",
+      "addresses": {},
+      "native": {
+        "service": "isoloom-check"
+      }
+    },
+    {
+      "name": "isoloom-check-database",
+      "role": "check",
+      "of": "database",
+      "addresses": {},
+      "native": {
+        "service": "isoloom-check-database"
+      }
+    },
+    {
+      "name": "isoloom-check-web",
+      "role": "check",
+      "of": "web",
+      "addresses": {},
+      "native": {
+        "service": "isoloom-check-web"
+      }
+    },
+    {
+      "name": "isoloom-probe-amd64",
+      "role": "infra",
+      "addresses": {},
+      "native": {
+        "service": "isoloom-probe-amd64"
+      }
+    }
+  ],
+  "lifecycle": {
+    "up": [
+      {
+        "id": "reconcile",
+        "note": "Clearing the state of a run on another provider, if any…",
+        "action": "vagrant.reconcile_provider"
+      },
+      {
+        "id": "discard-saved",
+        "action": "vagrant.discard_aborted_saved",
+        "failure": "tolerate",
+        "providers": [
+          "virtualbox"
+        ]
+      },
+      {
+        "id": "forwarded-ports",
+        "action": "vagrant.check_forwarded_ports",
+        "providers": [
+          "virtualbox",
+          "vmware_desktop",
+          "parallels",
+          "libvirt",
+          "qemu",
+          "utm"
+        ]
+      },
+      {
+        "id": "up",
+        "note": "Building the lab's VM with Docker in it…",
+        "argv": [
+          "vagrant",
+          "up",
+          "--provider",
+          "${run.provider}",
+          "--provision-with",
+          "docker,accept-env,project"
+        ],
+        "timeout_s": 3600
+      },
+      {
+        "id": "start",
+        "note": "Starting the lab's containers in the VM…",
+        "argv": [
+          "vagrant",
+          "ssh",
+          "--no-tty",
+          "--command",
+          "cd /opt/isoloom && sudo -E env ISOLOOM_PUBLISH_ADDRESS=0.0.0.0 ISOLOOM_PUBLISH_FIXED=1 docker compose --project-name invoice-portal-api --file .isoloom/docker/compose.yml up --detach --build --pull missing --wait --wait-timeout 600",
+          "default"
+        ],
+        "timeout_s": 1800
+      }
+    ],
+    "down": [
+      {
+        "id": "destroy",
+        "argv": [
+          "vagrant",
+          "destroy",
+          "--force"
+        ],
+        "timeout_s": 1800,
+        "when": "always"
+      },
+      {
+        "id": "orphans",
+        "action": "vagrant.remove_orphans",
+        "when": "always",
+        "failure": "tolerate",
+        "providers": [
+          "virtualbox",
+          "parallels"
+        ]
+      },
+      {
+        "id": "reset",
+        "action": "vagrant.reset_state"
+      }
+    ],
+    "park": {
+      "pause": [
+        {
+          "id": "suspend",
+          "argv": [
+            "vagrant",
+            "suspend"
+          ],
+          "timeout_s": 1800
+        }
+      ]
+    },
+    "resume": [
+      {
+        "id": "discard-saved",
+        "action": "vagrant.discard_aborted_saved",
+        "failure": "tolerate",
+        "providers": [
+          "virtualbox"
+        ]
+      },
+      {
+        "id": "resume",
+        "argv": [
+          "vagrant",
+          "up",
+          "--no-provision",
+          "--provider",
+          "${run.provider}"
+        ],
+        "timeout_s": 3600,
+        "failure": "tolerate"
+      },
+      {
+        "id": "discard-cut-off",
+        "action": "vagrant.discard_aborted_saved",
+        "failure": "tolerate",
+        "providers": [
+          "virtualbox"
+        ]
+      },
+      {
+        "id": "boot",
+        "argv": [
+          "vagrant",
+          "up",
+          "--no-provision",
+          "--provider",
+          "${run.provider}"
+        ],
+        "timeout_s": 3600
+      }
+    ],
+    "status": {
+      "id": "status",
+      "argv": [
+        "vagrant",
+        "status",
+        "--machine-readable"
+      ],
+      "timeout_s": 25,
+      "provider_timeout_s": {
+        "vmware_esxi": 90
+      }
+    }
+  },
+  "ready": [
+    {
+      "kind": "step_ok",
+      "step": "up",
+      "means": "the VM booted with Docker and the project in it"
+    },
+    {
+      "kind": "step_ok",
+      "step": "start",
+      "means": "every long-running service is healthy (`--wait`: each port's probe, the route keepers, the machines' own healthchecks)"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "web_portal",
+      "description": "web's portal (port 80).",
+      "role": "entry",
+      "sensitive": false,
+      "format": "http://${host.web}:${value}/",
+      "from": {
+        "kind": "published_port",
+        "machine": "web",
+        "port": "portal"
+      }
+    }
+  ],
+  "checks": {
+    "protocol": "isoloom-check/1",
+    "setup": [],
+    "runners": [
+      {
+        "id": "isoloom-check",
+        "from": "from the environment's networks",
+        "checks": [
+          {
+            "name": "the API refuses a request without its key",
+            "kind": "http",
+            "wait_s": 30,
+            "derived": false
+          },
+          {
+            "name": "build/check/check.sh",
+            "kind": "script",
+            "wait_s": 0,
+            "derived": false
+          }
+        ],
+        "step": {
+          "id": "check-networks",
+          "argv": [
+            "vagrant",
+            "ssh",
+            "--no-tty",
+            "--command",
+            "cd /opt/isoloom && sudo -E env ISOLOOM_PUBLISH_ADDRESS=0.0.0.0 ISOLOOM_PUBLISH_FIXED=1 docker compose --project-name invoice-portal-api --file .isoloom/docker/compose.yml --profile check run --rm --no-deps --env ISOLOOM_DERIVED=${params.ISOLOOM_DERIVED} isoloom-check",
+            "default"
+          ],
+          "timeout_s": 120
+        },
+        "on_timeout": [
+          {
+            "id": "rm-check-networks",
+            "argv": [
+              "vagrant",
+              "ssh",
+              "--no-tty",
+              "--command",
+              "sudo docker ps -aq --filter label=com.docker.compose.project=invoice-portal-api --filter label=com.docker.compose.service=isoloom-check --filter label=com.docker.compose.oneoff=True | xargs -r sudo docker rm -f",
+              "default"
+            ],
+            "timeout_s": 60
+          }
+        ]
+      },
+      {
+        "id": "isoloom-check-database",
+        "from": "from database",
+        "checks": [
+          {
+            "name": "web:80 from database",
+            "kind": "http",
+            "wait_s": 30,
+            "derived": true
+          }
+        ],
+        "step": {
+          "id": "check-database",
+          "argv": [
+            "vagrant",
+            "ssh",
+            "--no-tty",
+            "--command",
+            "cd /opt/isoloom && sudo -E env ISOLOOM_PUBLISH_ADDRESS=0.0.0.0 ISOLOOM_PUBLISH_FIXED=1 docker compose --project-name invoice-portal-api --file .isoloom/docker/compose.yml --profile check run --rm --no-deps --env ISOLOOM_DERIVED=${params.ISOLOOM_DERIVED} isoloom-check-database",
+            "default"
+          ],
+          "timeout_s": 105
+        },
+        "on_timeout": [
+          {
+            "id": "rm-check-database",
+            "argv": [
+              "vagrant",
+              "ssh",
+              "--no-tty",
+              "--command",
+              "sudo docker ps -aq --filter label=com.docker.compose.project=invoice-portal-api --filter label=com.docker.compose.service=isoloom-check-database --filter label=com.docker.compose.oneoff=True | xargs -r sudo docker rm -f",
+              "default"
+            ],
+            "timeout_s": 60
+          }
+        ]
+      },
+      {
+        "id": "isoloom-check-web",
+        "from": "from web",
+        "checks": [
+          {
+            "name": "database:3207 from web",
+            "kind": "tcp",
+            "wait_s": 30,
+            "derived": true
+          }
+        ],
+        "step": {
+          "id": "check-web",
+          "argv": [
+            "vagrant",
+            "ssh",
+            "--no-tty",
+            "--command",
+            "cd /opt/isoloom && sudo -E env ISOLOOM_PUBLISH_ADDRESS=0.0.0.0 ISOLOOM_PUBLISH_FIXED=1 docker compose --project-name invoice-portal-api --file .isoloom/docker/compose.yml --profile check run --rm --no-deps --env ISOLOOM_DERIVED=${params.ISOLOOM_DERIVED} isoloom-check-web",
+            "default"
+          ],
+          "timeout_s": 105
+        },
+        "on_timeout": [
+          {
+            "id": "rm-check-web",
+            "argv": [
+              "vagrant",
+              "ssh",
+              "--no-tty",
+              "--command",
+              "sudo docker ps -aq --filter label=com.docker.compose.project=invoice-portal-api --filter label=com.docker.compose.service=isoloom-check-web --filter label=com.docker.compose.oneoff=True | xargs -r sudo docker rm -f",
+              "default"
+            ],
+            "timeout_s": 60
+          }
+        ]
+      }
+    ],
+    "teardown": []
+  },
+  "recovery": {
+    "stale_markers": [
+      "verr_already_exists",
+      "could not rename",
+      "is locked",
+      "different provider",
+      "single provider at a time"
+    ],
+    "steps": [
+      {
+        "id": "destroy",
+        "note": "Clearing what an earlier run left, then starting again…",
+        "argv": [
+          "vagrant",
+          "destroy",
+          "--force"
+        ],
+        "timeout_s": 180,
+        "when": "always",
+        "failure": "tolerate"
+      },
+      {
+        "id": "orphans",
+        "action": "vagrant.remove_orphans",
+        "when": "always",
+        "failure": "tolerate",
+        "providers": [
+          "virtualbox",
+          "parallels"
+        ]
+      },
+      {
+        "id": "reset",
+        "action": "vagrant.reset_state",
+        "when": "always"
+      }
+    ],
+    "retries": 1
+  },
+  "guest": {
+    "machine": "docker",
+    "status": {
+      "id": "ps",
+      "argv": [
+        "vagrant",
+        "ssh",
+        "--no-tty",
+        "--command",
+        "if command -v docker >/dev/null; then sudo docker compose --project-name invoice-portal-api ps --all --format json; fi",
+        "default"
+      ],
+      "timeout_s": 60
+    }
+  }
+}
