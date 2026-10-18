@@ -1,8 +1,9 @@
 #!/bin/sh
 # Database VM: MariaDB on 3207 with the invoices schema, reachable from the web VM only.
 # Then claims this player's evidence and places it (invoice INV-20507's amount).
-# An Isoloom VM step: runs as root from the project (/opt/isoloom), with this machine's
-# inputs (CTF_API_URL, CTF_LAUNCH_TOKEN); safe to re-run.
+# An Isoloom VM step: runs as root from the project (/opt/isoloom). CTF_API_URL is in the
+# environment (a non-secret input); the launch token is a file at /run/lab/launch-token.
+# Safe to re-run.
 set -eu
 
 LAB=/opt/isoloom
