@@ -1,0 +1,495 @@
+{
+  "$schema": "https://www.isoloom.com/schema/run-manifest/v0.json",
+  "manifest_version": 0,
+  "generator": {
+    "name": "isoloom",
+    "version": "1.0.0"
+  },
+  "environment": {
+    "name": "invoice-portal-api",
+    "instance": null,
+    "message": "Globex Finance's supplier portal API answers at http://127.0.0.1:${published.web.portal}/.\nStart with the documentation it publishes; the invoice you are after is INV-20507.\n"
+  },
+  "target": "cloud-vm",
+  "cloud": "oci",
+  "driver": "terraform",
+  "hosts": [
+    "linux",
+    "macos",
+    "windows"
+  ],
+  "tools": [
+    {
+      "name": "terraform",
+      "probe": [
+        "terraform",
+        "version"
+      ],
+      "min_version": "1.11.0"
+    },
+    {
+      "name": "ssh",
+      "probe": [
+        "ssh",
+        "-V"
+      ]
+    }
+  ],
+  "identity": {
+    "terraform": {
+      "module": ".",
+      "state": "runner"
+    }
+  },
+  "params": [
+    {
+      "name": "compartment_id",
+      "description": "The compartment the environment goes in.",
+      "required": true,
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "tf_var",
+          "var": "compartment_id"
+        }
+      ]
+    },
+    {
+      "name": "region",
+      "description": "The OCI region to launch in.",
+      "default": "eu-paris-1",
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "tf_var",
+          "var": "region"
+        }
+      ]
+    },
+    {
+      "name": "config_file_profile",
+      "description": "The profile of the OCI CLI's configuration (~/.oci/config) the provider signs in with.",
+      "default": "DEFAULT",
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "tf_var",
+          "var": "config_file_profile"
+        }
+      ]
+    },
+    {
+      "name": "allowed_cidr",
+      "description": "Who may reach the machines (SSH and the published ports), e.g. your IP/32.",
+      "required": true,
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "tf_var",
+          "var": "allowed_cidr"
+        }
+      ]
+    },
+    {
+      "name": "ISOLOOM_DERIVED",
+      "description": "0: the checks derived from the spec (reachability, no internet) are skipped.",
+      "default": "1",
+      "values": [
+        "0",
+        "1"
+      ],
+      "set_by": "embedder",
+      "deliver": [
+        {
+          "via": "env",
+          "var": "ISOLOOM_DERIVED",
+          "steps": [
+            "check-networks",
+            "check-database",
+            "check-web"
+          ]
+        }
+      ]
+    }
+  ],
+  "secrets": [
+    {
+      "name": "CTF_API_URL",
+      "kind": "input",
+      "required": false,
+      "sensitive": false,
+      "machines": [
+        "database"
+      ],
+      "default": "",
+      "deliver": [
+        {
+          "via": "tf_var",
+          "var": "inputs",
+          "shape": "map_entry"
+        }
+      ]
+    },
+    {
+      "name": "input-ctf-launch-token",
+      "kind": "secret",
+      "required": false,
+      "sensitive": true,
+      "machines": [
+        "database"
+      ],
+      "default": "",
+      "deliver": [
+        {
+          "via": "guest",
+          "machine": "database",
+          "transport": "ssh"
+        }
+      ]
+    }
+  ],
+  "networks": [
+    {
+      "name": "lab",
+      "cidr": "10.20.0.0/24",
+      "internet": true,
+      "native": "lab"
+    }
+  ],
+  "machines": [
+    {
+      "name": "database",
+      "role": "target",
+      "os": "debian-12",
+      "arch": "amd64",
+      "addresses": {
+        "lab": "10.20.0.32"
+      },
+      "ports": [
+        {
+          "name": "mysql",
+          "port": 3207,
+          "protocol": "tcp",
+          "http": false
+        }
+      ]
+    },
+    {
+      "name": "web",
+      "role": "target",
+      "os": "debian-12",
+      "arch": "amd64",
+      "addresses": {
+        "lab": "10.20.0.31"
+      },
+      "ports": [
+        {
+          "name": "portal",
+          "port": 80,
+          "protocol": "tcp",
+          "http": true,
+          "publish": {
+            "mode": "fixed",
+            "preferred": 80,
+            "address": "${outputs.address_web}"
+          }
+        }
+      ]
+    }
+  ],
+  "lifecycle": {
+    "up": [
+      {
+        "id": "clear-lock",
+        "action": "terraform.clear_lock"
+      },
+      {
+        "id": "init",
+        "note": "Preparing Terraform and its providers…",
+        "argv": [
+          "terraform",
+          "init",
+          "-input=false",
+          "-no-color",
+          "-backend-config=path=${run.state_dir}/terraform.tfstate"
+        ],
+        "env": {
+          "TF_DATA_DIR": "${run.state_dir}/.terraform",
+          "TF_INPUT": "0",
+          "TF_IN_AUTOMATION": "1",
+          "TF_VAR_ssh_public_key": "${run.ssh_public_key}"
+        },
+        "timeout_s": 900
+      },
+      {
+        "id": "apply",
+        "note": "Creating the lab's machines in the cloud…",
+        "argv": [
+          "terraform",
+          "apply",
+          "-auto-approve",
+          "-input=false",
+          "-no-color"
+        ],
+        "env": {
+          "TF_DATA_DIR": "${run.state_dir}/.terraform",
+          "TF_INPUT": "0",
+          "TF_IN_AUTOMATION": "1",
+          "TF_VAR_ssh_public_key": "${run.ssh_public_key}"
+        },
+        "timeout_s": 3600
+      },
+      {
+        "id": "archive",
+        "note": "Archiving the project…",
+        "action": "project.archive",
+        "with": {
+          "root": "../../.."
+        }
+      },
+      {
+        "id": "deliver-database",
+        "note": "Copying the project into database…",
+        "action": "ssh.run",
+        "with": {
+          "command": "sudo sh -c 'mkdir -p /opt/isoloom /var/lib/isoloom && tar -xzf - -C /opt/isoloom && touch /var/lib/isoloom/project-delivered'",
+          "host": "${outputs.address_database}",
+          "user": "ubuntu",
+          "wait_s": "900"
+        },
+        "stdin": "${run.state_dir}/project.tgz",
+        "timeout_s": 1500
+      },
+      {
+        "id": "deliver-web",
+        "note": "Copying the project into web…",
+        "action": "ssh.run",
+        "with": {
+          "command": "sudo sh -c 'mkdir -p /opt/isoloom /var/lib/isoloom && tar -xzf - -C /opt/isoloom && touch /var/lib/isoloom/project-delivered'",
+          "host": "${outputs.address_web}",
+          "user": "ubuntu",
+          "wait_s": "900"
+        },
+        "stdin": "${run.state_dir}/project.tgz",
+        "timeout_s": 1500
+      }
+    ],
+    "down": [
+      {
+        "id": "clear-lock",
+        "action": "terraform.clear_lock"
+      },
+      {
+        "id": "init",
+        "note": "Preparing Terraform and its providers…",
+        "argv": [
+          "terraform",
+          "init",
+          "-input=false",
+          "-no-color",
+          "-backend-config=path=${run.state_dir}/terraform.tfstate"
+        ],
+        "env": {
+          "TF_DATA_DIR": "${run.state_dir}/.terraform",
+          "TF_INPUT": "0",
+          "TF_IN_AUTOMATION": "1",
+          "TF_VAR_ssh_public_key": "${run.ssh_public_key}"
+        },
+        "timeout_s": 900
+      },
+      {
+        "id": "destroy",
+        "note": "Removing the lab from the cloud…",
+        "argv": [
+          "terraform",
+          "destroy",
+          "-auto-approve",
+          "-input=false",
+          "-no-color"
+        ],
+        "env": {
+          "TF_DATA_DIR": "${run.state_dir}/.terraform",
+          "TF_INPUT": "0",
+          "TF_IN_AUTOMATION": "1",
+          "TF_VAR_ssh_public_key": "${run.ssh_public_key}"
+        },
+        "timeout_s": 3600
+      }
+    ],
+    "status": {
+      "id": "state",
+      "action": "terraform.read_state"
+    }
+  },
+  "ready": [
+    {
+      "kind": "step_ok",
+      "step": "apply",
+      "means": "the machines exist and booted; each sets itself up from its user data once the project is in"
+    },
+    {
+      "kind": "ready_file",
+      "host": "${outputs.address_database}",
+      "user": "ubuntu",
+      "path": "${outputs.ready_file}",
+      "log": "/var/log/isoloom-setup.log",
+      "grammar": "isoloom-ready/1",
+      "timeout_s": 2400,
+      "unreachable_timeout_s": 600,
+      "interval_s": 10
+    },
+    {
+      "kind": "ready_file",
+      "host": "${outputs.address_web}",
+      "user": "ubuntu",
+      "path": "${outputs.ready_file}",
+      "log": "/var/log/isoloom-setup.log",
+      "grammar": "isoloom-ready/1",
+      "timeout_s": 2400,
+      "unreachable_timeout_s": 600,
+      "interval_s": 10
+    }
+  ],
+  "outputs": [
+    {
+      "name": "ip",
+      "description": "Where to stand: the access machine's public address (the first Linux machine's, else the controller's).",
+      "role": "address",
+      "sensitive": false,
+      "from": {
+        "kind": "terraform_output",
+        "name": "ip"
+      }
+    },
+    {
+      "name": "ready_file",
+      "description": "Where each Linux machine's set-up says how far it got (isoloom-ready/1).",
+      "role": "info",
+      "sensitive": false,
+      "from": {
+        "kind": "terraform_output",
+        "name": "ready_file"
+      }
+    },
+    {
+      "name": "address_database",
+      "description": "database's public address: the runner's SSH and its published ports reach it there.",
+      "role": "address",
+      "sensitive": false,
+      "from": {
+        "kind": "terraform_output",
+        "name": "address_database"
+      }
+    },
+    {
+      "name": "address_web",
+      "description": "web's public address: the runner's SSH and its published ports reach it there.",
+      "role": "address",
+      "sensitive": false,
+      "from": {
+        "kind": "terraform_output",
+        "name": "address_web"
+      }
+    },
+    {
+      "name": "web_portal",
+      "description": "web's portal (port 80).",
+      "role": "entry",
+      "sensitive": false,
+      "format": "http://${outputs.address_web}:${value}/",
+      "from": {
+        "kind": "published_port",
+        "machine": "web",
+        "port": "portal"
+      }
+    }
+  ],
+  "checks": {
+    "protocol": "isoloom-check/1",
+    "setup": [],
+    "runners": [
+      {
+        "id": "networks",
+        "from": "from database",
+        "checks": [
+          {
+            "name": "the API refuses a request without its key",
+            "kind": "http",
+            "wait_s": 30,
+            "derived": false
+          },
+          {
+            "name": "build/check/check.sh",
+            "kind": "script",
+            "wait_s": 0,
+            "derived": false
+          }
+        ],
+        "step": {
+          "id": "check-networks",
+          "action": "ssh.run",
+          "with": {
+            "command": "cd /opt/isoloom && ISOLOOM_DERIVED=${params.ISOLOOM_DERIVED} sh .isoloom/cloud-vm/checks/networks.sh",
+            "host": "${outputs.address_database}",
+            "user": "ubuntu"
+          },
+          "timeout_s": 120
+        }
+      },
+      {
+        "id": "database",
+        "from": "from database",
+        "checks": [
+          {
+            "name": "web:80 from database",
+            "kind": "http",
+            "wait_s": 30,
+            "derived": true
+          }
+        ],
+        "step": {
+          "id": "check-database",
+          "action": "ssh.run",
+          "with": {
+            "command": "cd /opt/isoloom && ISOLOOM_DERIVED=${params.ISOLOOM_DERIVED} sh .isoloom/cloud-vm/checks/database.sh",
+            "host": "${outputs.address_database}",
+            "user": "ubuntu"
+          },
+          "timeout_s": 105
+        }
+      },
+      {
+        "id": "web",
+        "from": "from web",
+        "checks": [
+          {
+            "name": "database:3207 from web",
+            "kind": "tcp",
+            "wait_s": 30,
+            "derived": true
+          }
+        ],
+        "step": {
+          "id": "check-web",
+          "action": "ssh.run",
+          "with": {
+            "command": "cd /opt/isoloom && ISOLOOM_DERIVED=${params.ISOLOOM_DERIVED} sh .isoloom/cloud-vm/checks/web.sh",
+            "host": "${outputs.address_web}",
+            "user": "ubuntu"
+          },
+          "timeout_s": 105
+        }
+      }
+    ],
+    "teardown": []
+  },
+  "recovery": {
+    "retries": 0,
+    "apply_retries": 1
+  },
+  "expiry": {
+    "tf_var": "expires_at",
+    "unit": "unix_seconds",
+    "default_minutes": 240
+  }
+}
