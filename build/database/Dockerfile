@@ -6,5 +6,5 @@ ENV MYSQL_ROOT_PASSWORD=root-pass-9f2c \
     MYSQL_PASSWORD=portal-pass \
     MYSQL_TCP_PORT=3207
 COPY init/ /docker-entrypoint-initdb.d/
-COPY place-evidence.sh /opt/ctf/place-evidence.sh
-COPY claim-evidence.sh /opt/ctf/claim-evidence.sh
+# The evidence helpers (claim/place) are not copied in: the `setup` step reads them from the
+# project Isoloom mounts at /opt/isoloom, the same path on every target.
