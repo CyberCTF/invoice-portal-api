@@ -11,11 +11,12 @@ networks:
 
 # Given by the CyberCTF launcher so the database claims this player's evidence (the amount of
 # invoice INV-20507). The launch token is single-use and secret, so it arrives as a file; the
-# API's URL isn't secret, so it may be an environment value. Without them (local runs, CI) the
-# lab uses its development evidence.
+# API's URL isn't secret, so it may be an environment value. Without a launch (an import, local
+# runs, CI) neither is given: each is its default, empty, and the lab uses its development
+# evidence.
 inputs:
-  CTF_API_URL: {sensitive: false, description: "The CyberCTF API the database claims evidence from."}
-  CTF_LAUNCH_TOKEN: {description: "A single-use token issued at launch; the database claims this player's evidence with it."}
+  CTF_API_URL: {sensitive: false, default: "", description: "The CyberCTF API the database claims evidence from."}
+  CTF_LAUNCH_TOKEN: {default: "", description: "A single-use token issued at launch; the database claims this player's evidence with it."}
 
 machines:
   database:
