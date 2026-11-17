@@ -2,7 +2,8 @@
 # The database's `setup` step (isoloom.yml `setup: [build/database/evidence.sh]`): claims this
 # player's evidence (kept in the machine's `evidence` volume, the token is single-use) and places
 # it as the amount of invoice INV-20507 once the database answers. It runs on every target with the
-# project mounted at /opt/isoloom, and reaches the database over local TCP as root. The launch
+# project mounted at /opt/isoloom, and reaches the database over local TCP as root (the catalogue's
+# MySQL, set up from isoloom.yml's `with:`). The launch
 # token is read from its delivered file (/run/lab/launch-token), never from the environment.
 set -eu
 export CTF_EVIDENCE_FILE=/var/lib/ctf/evidence CTF_DEV_EVIDENCE="15600.00"

@@ -1,8 +1,9 @@
 # yaml-language-server: $schema=https://www.isoloom.com/schema/v1.json
-# Supplier portal API: Globex Finance's read-only supplier API. One description, run on every
-# target: containers (Docker), or one VM per machine (Vagrant, ESXi, Proxmox), or Docker on one
-# VM (this machine, a server, any cloud). The launch token reaches the database as a file, never
-# as an environment variable; the API's URL isn't secret, so it is one. See https://www.isoloom.com.
+# Supplier portal API: Globex Finance's read-only supplier API. One description, which Isoloom
+# translates to every target: containers (Docker Compose), or one VM per machine (Vagrant, ESXi,
+# Proxmox), or Docker on one VM. Nothing here is written per target. The launch token reaches the
+# database as a file, never as an environment variable; the API's URL isn't secret, so it is one.
+# See https://www.isoloom.com.
 version: 1
 name: invoice-portal-api
 
@@ -19,10 +20,24 @@ inputs:
   CTF_LAUNCH_TOKEN: {default: "", description: "A single-use token issued at launch; the database claims this player's evidence with it."}
 
 machines:
+  # MySQL from Isoloom's catalogue: Oracle's own build of 8.4.7 (the LTS), installed by the same
+  # recipe in a container and on a VM. It is the release of the entry with a VM form, so both
+  # targets run the same server; Oracle builds it for x86-64 only, hence the architecture.
   database:
-    os: debian@12
+    os: ubuntu@22.04
+    hardware: {arch: amd64}
     networks: {lab: 32}
-    ports: {mysql: 3207}
+    service: mysql@8.4.7
+    with:
+      port: 3207
+      password: root-pass-9f2c
+      database: portal
+      user: portal
+      user_password: portal-pass
+      # The portal only reads invoices.
+      privileges: SELECT
+      # The invoices table and its rows, loaded at the first start.
+      init: build/database/init/
     resources: {cpus: 1, memory_mb: 1024}
     environment:
       CTF_API_URL: {input: CTF_API_URL}
@@ -30,13 +45,12 @@ machines:
       - {path: /run/lab/launch-token, input: CTF_LAUNCH_TOKEN}
     # The claimed evidence: the launch token is single-use, so it must survive restarts.
     volumes: {evidence: /var/lib/ctf}
-    app:
-      build: build/database
-      steps: [run: provision/database.sh]
     # Once the database answers: claim this player's evidence (reads the token file above) and
     # place it as the amount of invoice INV-20507. Nothing on the command line or in the env.
     setup: [build/database/evidence.sh]
 
+  # The API (Flask under gunicorn), installed by portable steps: a Debian 12 image built from
+  # them on containers, the same steps on a VM.
   web:
     os: debian@12
     networks: {lab: 31}
@@ -47,8 +61,28 @@ machines:
     depends_on: [database]
     resources: {cpus: 1, memory_mb: 1024}
     app:
-      build: build/web
-      steps: [run: provision/web.sh]
+      steps:
+        - packages: [python3, python3-venv]
+        - user: {name: portal, system: true, home: /opt/portal, shell: /usr/sbin/nologin}
+        - copy: {from: build/web/src/, to: /opt/portal/app/}
+        - command: python3 -m venv /opt/portal/venv && /opt/portal/venv/bin/pip install --no-cache-dir --disable-pip-version-check -q -r /opt/portal/app/requirements.txt
+          creates: /opt/portal/venv/bin/gunicorn
+    # gunicorn binds port 80 as root, then runs its workers (the app) as `portal`.
+    command:
+      run: [/opt/portal/venv/bin/gunicorn, --bind, "0.0.0.0:80", --user, portal, --group, portal, --workers, "2", --timeout, "60", "app:app"]
+      cwd: /opt/portal/app
+    environment:
+      DB_HOST: database
+      DB_PORT: 3207
+      DB_USER: portal
+      DB_PASSWORD: portal-pass
+      DB_NAME: portal
+      # The documented demo key, shown on the home page: not a secret.
+      PORTAL_API_KEY: vendor-demo-key
+    # Healthy once lookups can work: /healthz answers only when the database does too.
+    healthcheck:
+      http: {port: portal, path: /healthz}
+      start_period: 40s
 
 # From the player's side, on every target: the lesson, declared; the intended path, as a script
 # (it needs the documented key). Reachability checks are derived from the spec.
