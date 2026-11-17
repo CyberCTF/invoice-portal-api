@@ -20,12 +20,11 @@ inputs:
   CTF_LAUNCH_TOKEN: {default: "", description: "A single-use token issued at launch; the database claims this player's evidence with it."}
 
 machines:
-  # MySQL from Isoloom's catalogue: Oracle's own build of 8.4.7 (the LTS), installed by the same
-  # recipe in a container and on a VM. It is the release of the entry with a VM form, so both
-  # targets run the same server; Oracle builds it for x86-64 only, hence the architecture.
+  # MySQL 8.4.7 (the LTS) from Isoloom's catalogue, natively on x86-64 and arm64 alike: its
+  # official image in a container, Oracle's own build of the same release for the machine's
+  # architecture on a VM. Both forms take the same settings below.
   database:
-    os: ubuntu@22.04
-    hardware: {arch: amd64}
+    os: debian@12
     networks: {lab: 32}
     service: mysql@8.4.7
     with:
