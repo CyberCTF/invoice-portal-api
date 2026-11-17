@@ -41,6 +41,12 @@ case "$TOKEN" in
   *[!A-Za-z0-9_.-]*) echo "evidence: malformed launch token" >&2; exit 1 ;;
 esac
 
+# The database's machine is the catalogue's MySQL, which ships no HTTP client: fetch one first.
+if ! command -v curl >/dev/null 2>&1; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq && apt-get install -y -qq --no-install-recommends ca-certificates curl >/dev/null
+fi
+
 body='{"query":"mutation($t:String!){claimLabEvidence(launchToken:$t)}","variables":{"t":"'"$TOKEN"'"}}'
 response=$(curl -fsS --max-time 20 --retry 3 --retry-connrefused \
   -H 'content-type: application/json' --data "$body" "$CTF_API_URL")
